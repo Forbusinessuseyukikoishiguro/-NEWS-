@@ -1,0 +1,1856 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>うさうさNEWS ブリッジ v3.4 — 動画制作指示書ジェネレーター</title>
+<style>
+  :root{
+    --emerald:#1fa595; --emerald-deep:#147a6e; --mint:#7fd4c6;
+    --mint-pale:#d4f0ea; --mint-50:#ecf9f5; --mint-30:#f4fbf9;
+    --white:#ffffff; --ink:#13211f; --ink-soft:#41534e; --muted:#6f827c;
+    --line:#c9e6df; --line-soft:#dcefea; --crystal:#bfe9e0;
+    --pearl:#efeaf8; --lav:#c7b8e6; --blueprint:#1b8f9e;
+    --gold:#d8b65a; --rose:#f0a9b6;
+    --shadow:rgba(31,165,149,.16);
+    --mono:ui-monospace,"SFMono-Regular",Menlo,Consolas,"Courier New",monospace;
+    --jp:"Hiragino Kaku Gothic ProN","Yu Gothic Medium",YuGothic,"Noto Sans JP",Meiryo,sans-serif;
+    --mincho:"Hiragino Mincho ProN","Yu Mincho",YuMincho,"Noto Serif JP",serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:
+      radial-gradient(1100px 600px at 82% -8%, #e6f7f2 0%, transparent 55%),
+      radial-gradient(900px 520px at -8% 108%, #eef0fb 0%, transparent 55%),
+      linear-gradient(180deg,#f6fcfa,#eef8f5);
+    color:var(--ink); font-family:var(--jp); line-height:1.7;
+    -webkit-font-smoothing:antialiased; min-height:100vh;
+  }
+  ::selection{background:var(--mint);color:#08332e}
+  a{color:var(--emerald-deep)}
+
+  /* sparkle field */
+  body::before{
+    content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.5;
+    background-image:
+      radial-gradient(1.5px 1.5px at 12% 22%, #fff 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 78% 14%, var(--crystal) 50%, transparent 51%),
+      radial-gradient(2px 2px at 36% 70%, #fff 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 64% 84%, var(--lav) 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 90% 56%, #fff 50%, transparent 51%);
+  }
+
+  /* ===== HUD top bar (cockpit) ===== */
+  .hud{position:sticky;top:0;z-index:40;background:rgba(255,255,255,.82);backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);box-shadow:0 6px 20px var(--shadow)}
+  .hud-in{max-width:1180px;margin:0 auto;padding:10px 18px;display:flex;align-items:center;gap:13px;flex-wrap:wrap}
+  .status{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-weight:800;letter-spacing:.16em;
+    font-size:11px;color:var(--emerald-deep);background:var(--mint-pale);border:1px solid var(--mint);
+    padding:6px 11px;border-radius:6px}
+  .status .dot{width:8px;height:8px;border-radius:50%;background:var(--emerald);box-shadow:0 0 8px var(--emerald);animation:pulse 1.6s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .brand{display:flex;align-items:center;gap:10px;min-width:0}
+  .brand .logo{height:36px;width:36px;border-radius:9px;border:2px solid var(--white);box-shadow:0 2px 8px var(--shadow);object-fit:cover;flex:none}
+  .brand b{font-weight:800;font-size:15px;letter-spacing:.01em;color:var(--ink)}
+  .brand small{display:block;color:var(--muted);font-size:10.5px;letter-spacing:.16em;font-family:var(--mono)}
+  .hud-spacer{flex:1 1 auto;min-width:8px}
+  .nav{font-family:var(--mono);font-size:12px;color:var(--blueprint);letter-spacing:.08em;display:flex;align-items:center;gap:12px}
+  .nav b{color:var(--emerald-deep)}
+
+  .tabs{max-width:1180px;margin:0 auto;padding:0 10px;display:flex;gap:2px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+  .tab{appearance:none;border:none;background:transparent;color:var(--muted);font-family:var(--jp);
+    font-size:13.5px;font-weight:700;letter-spacing:.02em;padding:12px 13px 10px;cursor:pointer;
+    border-bottom:2.5px solid transparent;display:flex;align-items:center;gap:6px;transition:color .15s,border-color .15s}
+  .tab .num{font-family:var(--mono);font-size:10px;color:var(--mint);}
+  .tab:hover{color:var(--ink-soft)}
+  .tab.on{color:var(--emerald-deep);border-bottom-color:var(--emerald)}
+  .tab.on .num{color:var(--emerald)}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:20px 18px 120px;position:relative;z-index:1}
+  .view{display:none;animation:fade .25s ease}
+  .view.on{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+  /* ===== panels ===== */
+  .panel{background:var(--white);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:16px;
+    box-shadow:0 10px 30px var(--shadow)}
+  .panel>h2{margin:0 0 4px;font-size:16px;color:var(--ink);display:flex;align-items:center;gap:9px}
+  .panel>h2 .tag{font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--white);
+    background:linear-gradient(135deg,var(--emerald),var(--blueprint));padding:3px 8px;border-radius:5px;font-weight:800}
+  .panel .sub{color:var(--ink-soft);font-size:12.5px;margin:0 0 16px;border-bottom:1px dashed var(--line);padding-bottom:12px}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:720px){.grid{grid-template-columns:1fr}}
+  .field{display:flex;flex-direction:column;gap:6px}
+  .field.full{grid-column:1/-1}
+  label.lab{font-size:12px;font-weight:700;color:var(--ink-soft);letter-spacing:.02em;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  label.lab .v{font-family:var(--mono);font-size:10px;color:var(--emerald-deep);background:var(--mint-pale);border:1px solid var(--mint);padding:1px 6px;border-radius:4px}
+  label.lab .hint{font-weight:500;color:var(--muted);font-size:11px}
+  input[type=text],input[type=number],textarea,select{
+    width:100%;background:var(--mint-30);color:var(--ink);border:1px solid var(--line);
+    border-radius:10px;padding:10px 12px;font-family:var(--jp);font-size:13.5px;line-height:1.6;transition:border-color .15s,box-shadow .15s}
+  textarea{resize:vertical;min-height:60px}
+  input:focus,textarea:focus,select:focus{outline:none;border-color:var(--emerald);box-shadow:0 0 0 3px rgba(31,165,149,.16);background:#fff}
+  select{cursor:pointer}
+  .help{font-size:11.5px;color:var(--muted)}
+
+  .presets{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:4px}
+  .btn{appearance:none;cursor:pointer;font-family:var(--jp);font-weight:700;font-size:13px;border-radius:11px;
+    padding:10px 16px;border:1px solid var(--line);background:var(--white);color:var(--ink);transition:all .15s;
+    display:inline-flex;align-items:center;gap:8px;box-shadow:0 2px 6px var(--shadow)}
+  .btn:hover{border-color:var(--emerald);transform:translateY(-1px)}
+  .btn.primary{background:linear-gradient(135deg,var(--emerald),var(--blueprint));border-color:var(--emerald-deep);color:#fff}
+  .btn.primary:hover{box-shadow:0 6px 18px rgba(31,165,149,.4)}
+  .btn.gold{background:linear-gradient(135deg,#ecd99a,#d8b65a);border-color:#c7a647;color:#3a2e08}
+  .btn.ghost{background:transparent;box-shadow:none}
+  .btn.sm{padding:6px 12px;font-size:12px;border-radius:9px}
+  .note{font-size:11.5px;color:var(--ink-soft);background:var(--mint-50);border:1px solid var(--line-soft);border-radius:10px;padding:10px 13px;margin-top:12px;line-height:1.7}
+  .note b{color:var(--emerald-deep)}
+
+  /* ===== per-tab export bar ===== */
+  .xbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:linear-gradient(180deg,var(--mint-50),#fff);
+    border:1px solid var(--line);border-radius:12px;padding:8px 12px;margin-bottom:14px;position:relative;overflow:hidden}
+  .xbar::after{content:"";position:absolute;left:0;right:0;top:0;height:2px;
+    background:linear-gradient(90deg,transparent,var(--mint),var(--blueprint),var(--mint),transparent);
+    animation:scan 3.5s linear infinite;opacity:.7}
+  @keyframes scan{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+  .xtag{font-family:var(--mono);font-size:10.5px;font-weight:800;letter-spacing:.1em;color:var(--blueprint)}
+  .xtag::before{content:"▸ ";color:var(--emerald)}
+  .xspace{flex:1 1 auto}
+  .seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}
+  .seg button{appearance:none;border:none;background:transparent;color:var(--muted);font-family:var(--mono);
+    font-size:11px;font-weight:800;padding:6px 12px;cursor:pointer;letter-spacing:.06em}
+  .seg button.on{background:linear-gradient(135deg,var(--emerald),var(--blueprint));color:#fff}
+
+  /* ===== cue sheet ===== */
+  .cue-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+  .cue-meta{display:flex;gap:8px;flex-wrap:wrap}
+  .chip{font-family:var(--mono);font-size:11px;color:var(--ink-soft);background:var(--mint-50);border:1px solid var(--line);padding:4px 9px;border-radius:20px}
+  .chip b{color:var(--emerald-deep);font-weight:800}
+
+  .sheet{background:var(--white);border-radius:12px;border:1px solid var(--line);overflow:hidden;box-shadow:0 12px 34px var(--shadow)}
+  .sheet-top{background:linear-gradient(135deg,#0f5f57,#127a8a);color:#eafff9;padding:11px 16px;
+    display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;border-bottom:3px solid var(--mint)}
+  .sheet-top .t{font-weight:800;font-size:14px}
+  .sheet-top .t small{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--crystal);font-weight:600}
+  .sheet-top .rd{font-family:var(--mono);font-size:11px;color:#c5f1ea;letter-spacing:.1em}
+  .cue{padding:0}
+  .cue-row{display:grid;grid-template-columns:62px 1fr;border-bottom:1px solid var(--line-soft)}
+  .cue-row:nth-child(even){background:var(--mint-30)}
+  .cue-row:last-child{border-bottom:none}
+  .cue-tc{font-family:var(--mono);font-size:11px;color:var(--ink-soft);padding:12px 8px 12px 14px;border-right:2px solid var(--line-soft);line-height:1.5}
+  .cue-tc b{display:block;color:var(--emerald-deep);font-size:11.5px}
+  .cue-body{padding:11px 14px 13px}
+  .cue-title{font-weight:800;font-size:13.5px;color:var(--ink)}
+  .cue-flags{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 7px}
+  .flag{font-family:var(--mono);font-size:10px;font-weight:800;padding:2px 7px;border-radius:4px;letter-spacing:.03em}
+  .flag.blue{background:#dff0ff;color:#1f5a86;border:1px solid #b9dcf3}
+  .flag.red{background:#ffe4e4;color:#b23341;border:1px solid #f3bcbf}
+  .flag.pose{background:var(--mint-pale);color:var(--emerald-deep);border:1px solid var(--mint)}
+  .flag.comp{background:#eafaf3;color:#2f8a64;border:1px solid #c4e7d4}
+  .flag.lv{background:var(--pearl);color:#6b4f9c;border:1px solid #d8ccf0}
+  .cue-narr{font-size:12.5px;color:var(--ink);background:var(--mint-50);border-left:3px solid var(--emerald);padding:7px 10px;border-radius:0 6px 6px 0;white-space:pre-wrap}
+  .cue-visual{font-size:11.5px;color:var(--ink-soft);margin-top:6px}
+  .cue-visual b{color:var(--blueprint)}
+  .empty-sheet{padding:40px 20px;text-align:center;color:var(--muted);font-size:13px}
+
+  .scenes{display:flex;flex-direction:column;gap:12px;margin-top:6px}
+  .scard{background:var(--mint-30);border:1px solid var(--line);border-radius:13px;padding:14px}
+  .scard .sc-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .sc-idx{font-family:var(--mono);font-size:12px;font-weight:800;color:#fff;background:linear-gradient(135deg,var(--emerald),var(--blueprint));width:24px;height:24px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex:none}
+  .sc-head .sc-name{font-weight:800;font-size:13px;color:var(--ink);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sc-actions{display:flex;gap:5px;flex:none}
+  .icon-btn{appearance:none;border:1px solid var(--line);background:#fff;color:var(--ink-soft);width:28px;height:28px;border-radius:8px;cursor:pointer;font-size:13px;line-height:1;display:flex;align-items:center;justify-content:center}
+  .icon-btn:hover{border-color:var(--emerald);color:var(--emerald-deep)}
+  .icon-btn:disabled{opacity:.3;cursor:not-allowed}
+  .sgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  @media(max-width:720px){.sgrid{grid-template-columns:1fr 1fr}}
+  .sgrid .full{grid-column:1/-1}
+  .sgrid label{font-size:10.5px;color:var(--muted);font-weight:700;display:block;margin-bottom:4px}
+  .sgrid input,.sgrid select,.sgrid textarea{font-size:12.5px;padding:8px 9px;background:#fff}
+  .addbar{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+
+  /* rules */
+  .rules{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:720px){.rules{grid-template-columns:1fr}}
+  .rule{background:var(--mint-30);border:1px solid var(--line);border-left:3px solid var(--emerald);border-radius:12px;padding:14px}
+  .rule h3{margin:0 0 8px;font-size:13px;display:flex;align-items:center;gap:8px;color:var(--ink)}
+  .rule .ic{width:22px;height:22px;border-radius:7px;background:var(--mint-pale);display:flex;align-items:center;justify-content:center;font-size:13px}
+  .rule textarea{min-height:54px;background:#fff}
+  .lock{border-left-color:var(--gold)}
+  .lock h3 .ic{background:#f6edcf}
+
+  /* theory cards */
+  .lead{font-size:13.5px;color:var(--ink);background:linear-gradient(180deg,var(--mint-50),#fff);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:16px;line-height:1.85}
+  .lead b{color:var(--emerald-deep)}
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:760px){.cards{grid-template-columns:1fr}}
+  .card{background:#fff;border:1px solid var(--line);border-radius:13px;padding:16px;position:relative;overflow:hidden;box-shadow:0 6px 18px var(--shadow)}
+  .card::before{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:linear-gradient(var(--emerald),var(--blueprint))}
+  .card h3{margin:0 0 4px;font-size:13.5px;padding-left:6px;color:var(--ink)}
+  .card .cite{font-family:var(--mono);font-size:10.5px;color:var(--emerald-deep);margin:0 0 10px;padding-left:6px}
+  .card p{margin:0 0 8px;font-size:12.5px;color:var(--ink-soft);padding-left:6px}
+  .card.wide{grid-column:1/-1}
+  table.kv{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}
+  table.kv th,table.kv td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top;color:var(--ink)}
+  table.kv th{background:var(--mint-pale);color:var(--emerald-deep);font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;white-space:nowrap}
+  table.kv td b{color:var(--emerald-deep)}
+  .lvtag{font-family:var(--mono);font-weight:800;color:#fff;background:linear-gradient(135deg,var(--emerald),var(--blueprint));padding:1px 6px;border-radius:4px;font-size:11px}
+  .pill{display:inline-block;font-family:var(--mono);font-size:10.5px;color:var(--ink);background:var(--mint-30);border:1px solid var(--line);padding:3px 8px;border-radius:20px;margin:3px 4px 0 0}
+  .pill.b{border-color:#b9dcf3;color:#1f5a86;background:#eef7ff}
+  .pill.r{border-color:#d8ccf0;color:#6b4f9c;background:var(--pearl)}
+
+  /* ===== howto: spaceship board ===== */
+  .board{background:
+      linear-gradient(180deg,rgba(255,255,255,.92),rgba(236,249,245,.92)),
+      repeating-linear-gradient(0deg,transparent 0 27px,rgba(27,143,158,.06) 27px 28px),
+      repeating-linear-gradient(90deg,transparent 0 27px,rgba(27,143,158,.06) 27px 28px);
+    border:1px solid var(--blueprint);border-radius:16px;padding:0;margin-bottom:16px;overflow:hidden;
+    box-shadow:0 12px 34px var(--shadow);position:relative}
+  .board-top{background:linear-gradient(135deg,#0f5f57,#127a8a);color:#eafff9;padding:12px 18px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .board-top .bt{font-weight:800;font-size:15px;letter-spacing:.02em;display:flex;align-items:center;gap:9px}
+  .board-top .bt small{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.22em;color:var(--crystal)}
+  .board-top .coord{font-family:var(--mono);font-size:11px;color:#c5f1ea;letter-spacing:.1em}
+  .board-body{padding:18px}
+  .module{position:relative;background:rgba(255,255,255,.78);border:1px solid var(--crystal);border-radius:12px;padding:15px 16px 15px 16px;margin-bottom:14px}
+  .module:last-child{margin-bottom:0}
+  .module::before,.module::after{content:"";position:absolute;width:14px;height:14px;border:2px solid var(--blueprint);opacity:.6}
+  .module::before{left:-1px;top:-1px;border-right:none;border-bottom:none;border-radius:6px 0 0 0}
+  .module::after{right:-1px;bottom:-1px;border-left:none;border-top:none;border-radius:0 0 6px 0}
+  .module h3{margin:0 0 6px;font-size:14px;color:var(--ink);display:flex;align-items:center;gap:10px}
+  .module h3 .step{font-family:var(--mono);font-size:11px;font-weight:800;color:#fff;background:linear-gradient(135deg,var(--emerald),var(--blueprint));padding:3px 9px;border-radius:6px;letter-spacing:.06em}
+  .module p,.module li{color:var(--ink);font-size:13px}
+  .module p{margin:0 0 6px}
+  .module ul{margin:6px 0 0;padding-left:20px}
+  .module li{margin-bottom:4px}
+  .module .kbd{font-family:var(--mono);font-size:11px;background:var(--mint-pale);border:1px solid var(--mint);color:var(--emerald-deep);padding:1px 7px;border-radius:5px}
+  .module.warn{border-color:var(--gold)}
+  .module.warn::before,.module.warn::after{border-color:var(--gold)}
+
+  /* export tab preview */
+  .out{background:#fff;border:1px solid var(--line);border-radius:13px;overflow:hidden;box-shadow:0 8px 24px var(--shadow)}
+  .out-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 14px;background:var(--mint-50);border-bottom:1px solid var(--line)}
+  .out-bar .fn{font-family:var(--mono);font-size:11.5px;color:var(--emerald-deep)}
+  pre.code{margin:0;padding:16px;max-height:60vh;overflow:auto;font-family:var(--mono);font-size:12px;line-height:1.65;color:var(--ink);white-space:pre-wrap;word-break:break-word;background:var(--mint-30)}
+
+  /* ===== mascot + bubble ===== */
+  .mascot{position:fixed;right:20px;bottom:20px;z-index:60;display:flex;flex-direction:column;align-items:flex-end;gap:10px;pointer-events:none}
+  .mascot-btn{pointer-events:auto;appearance:none;border:none;padding:0;cursor:pointer;width:118px;height:118px;border-radius:50%;
+    overflow:hidden;border:4px solid #fff;box-shadow:0 10px 30px var(--shadow),0 0 0 3px var(--mint);
+    background:#fff;position:relative;transition:transform .2s}
+  @media(max-width:480px){.mascot-btn{width:94px;height:94px}}
+  .mascot-btn:hover{transform:translateY(-3px) scale(1.04)}
+  .mascot-btn img{width:100%;height:100%;object-fit:cover;display:block}
+  .mascot-btn .spark{position:absolute;inset:0;border-radius:50%;box-shadow:0 0 18px rgba(127,212,198,.6) inset;pointer-events:none;animation:glow 2.6s ease-in-out infinite}
+  @keyframes glow{0%,100%{opacity:.4}50%{opacity:.9}}
+  .bubble{pointer-events:auto;max-width:270px;background:#fff;color:var(--ink);border:1px solid var(--line);
+    border-radius:16px;padding:13px 15px;box-shadow:0 12px 30px var(--shadow);position:relative;
+    opacity:0;transform:translateY(10px) scale(.96);transition:opacity .3s,transform .3s;font-size:12.5px}
+  .bubble.show{opacity:1;transform:none}
+  .bubble::after{content:"";position:absolute;right:26px;bottom:-9px;width:16px;height:16px;background:#fff;
+    border-right:1px solid var(--line);border-bottom:1px solid var(--line);transform:rotate(45deg)}
+  .bubble .cheer{font-weight:800;color:var(--emerald-deep);font-size:12.5px;margin-bottom:5px}
+  .bubble .q{font-style:italic;color:var(--ink);line-height:1.55;margin-bottom:4px}
+  .bubble .a{font-family:var(--mono);font-size:10.5px;color:var(--muted);text-align:right}
+  .bubble .x{position:absolute;top:6px;right:9px;cursor:pointer;color:var(--muted);font-size:13px;line-height:1}
+
+  .foot{max-width:1180px;margin:0 auto;padding:18px;color:var(--muted);font-size:11.5px;text-align:center;border-top:1px solid var(--line);font-family:var(--mono);letter-spacing:.03em;position:relative;z-index:1}
+  .foot .tagline{font-family:var(--mincho);font-style:italic;color:var(--emerald-deep);font-size:13px;display:block;margin-bottom:6px;letter-spacing:0}
+
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:#fff;color:var(--ink);
+    border:1px solid var(--emerald);padding:11px 20px;border-radius:30px;font-size:13px;font-weight:700;opacity:0;pointer-events:none;
+    transition:all .3s;z-index:80;box-shadow:0 10px 30px var(--shadow)}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast b{color:var(--emerald-deep)}
+
+  /* ===== mode toggle (consult) ===== */
+  .modes{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+  .mode-btn{flex:1 1 230px;text-align:left;cursor:pointer;border:1.5px solid var(--line);border-radius:13px;padding:14px 16px;background:#fff;transition:all .15s;box-shadow:0 4px 14px var(--shadow);position:relative}
+  .mode-btn:hover{border-color:var(--emerald)}
+  .mode-btn.on{border-color:var(--emerald);background:linear-gradient(180deg,var(--mint-50),#fff);box-shadow:0 6px 20px var(--shadow)}
+  .mode-btn .mt{font-weight:800;font-size:14px;color:var(--ink);display:flex;align-items:center;gap:8px}
+  .mode-btn .mt .badge{font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:5px}
+  .mode-btn.gentle .mt .badge{background:var(--mint-pale);color:var(--emerald-deep)}
+  .mode-btn.strict .mt .badge{background:#ffe5d2;color:#b5651d}
+  .mode-btn .md{font-size:11.5px;color:var(--ink-soft);margin-top:6px;line-height:1.6}
+  .mode-btn .chk{position:absolute;top:13px;right:14px;color:var(--emerald);font-weight:800;opacity:0;font-size:15px}
+  .mode-btn.on .chk{opacity:1}
+  .consult-q{background:var(--mint-30);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:14px}
+  .consult-q h4{margin:0 0 8px;font-size:12.5px;color:var(--emerald-deep)}
+  .consult-q ul{margin:0;padding-left:20px}
+  .consult-q li{font-size:12.5px;color:var(--ink);margin-bottom:5px}
+
+  /* ===== paper cards ===== */
+  .card .doi{font-family:var(--mono);font-size:10px;color:var(--muted);padding-left:6px;margin-top:2px;word-break:break-all}
+  .takeaway{font-size:12px;color:var(--ink);background:var(--mint-50);border-left:3px solid var(--emerald);padding:7px 10px;border-radius:0 6px 6px 0;margin:8px 6px 0}
+  .takeaway b{color:var(--emerald-deep)}
+  .nblm{display:grid;grid-template-columns:1fr;gap:10px;margin-top:6px}
+  .nblm-step{display:flex;gap:11px;align-items:flex-start;background:rgba(255,255,255,.78);border:1px solid var(--crystal);border-radius:11px;padding:11px 13px}
+  .nblm-step .n{flex:none;font-family:var(--mono);font-weight:800;font-size:11px;color:#fff;background:linear-gradient(135deg,var(--emerald),var(--blueprint));width:24px;height:24px;border-radius:7px;display:flex;align-items:center;justify-content:center}
+  .nblm-step p{margin:0;font-size:12.5px;color:var(--ink)}
+  .nblm-step b{color:var(--blueprint)}
+
+  /* ===== trouble cards ===== */
+  .trouble{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:760px){.trouble{grid-template-columns:1fr}}
+  .tcard{background:#fff;border:1px solid var(--line);border-radius:13px;padding:15px;box-shadow:0 6px 18px var(--shadow);border-top:3px solid var(--rose)}
+  .tcard h3{margin:0 0 8px;font-size:13.5px;color:var(--ink);display:flex;gap:8px;align-items:flex-start;line-height:1.5}
+  .tcard h3 .q{flex:none;color:#fff;background:linear-gradient(135deg,#f0a9b6,#e57e92);font-family:var(--mono);font-weight:800;font-size:11px;padding:2px 7px;border-radius:5px;margin-top:1px}
+  .tcard .cause{font-size:12px;color:var(--ink-soft);margin:0 0 8px}
+  .tcard .cause b{color:var(--blueprint)}
+  .tcard .fix{font-size:12.5px;color:var(--ink);background:var(--mint-50);border-radius:9px;padding:9px 11px;line-height:1.6}
+  .tcard .fix b{color:var(--emerald-deep)}
+  .tcard .ref{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:7px}
+  .docnote{font-size:11.5px;color:var(--ink-soft);background:var(--mint-50);border:1px solid var(--line-soft);border-radius:10px;padding:10px 13px;margin-top:12px;line-height:1.7}
+  .docnote a{color:var(--emerald-deep);font-weight:700}
+
+  /* ===== proposal wizard ===== */
+  .stepper{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+  .dot{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--muted);font-weight:700;padding:6px 11px;border-radius:20px;border:1px solid var(--line);background:#fff;cursor:pointer;transition:all .15s}
+  .dot .n{font-family:var(--mono);font-size:10px;width:18px;height:18px;border-radius:50%;background:var(--mint-pale);color:var(--emerald-deep);display:flex;align-items:center;justify-content:center;font-weight:800}
+  .dot:hover{border-color:var(--emerald)}
+  .dot.on{border-color:var(--emerald);background:var(--mint-50);color:var(--ink)}
+  .dot.on .n{background:linear-gradient(135deg,var(--emerald),var(--blueprint));color:#fff}
+  .dot.done .n{background:var(--emerald);color:#fff}
+  .pstep{display:none}
+  .pstep.on{display:block;animation:fade .2s ease}
+  .pstep h3{margin:0 0 4px;font-size:14px;color:var(--ink)}
+  .pstep .pdesc{font-size:12px;color:var(--ink-soft);margin:0 0 14px;border-bottom:1px dashed var(--line);padding-bottom:10px}
+  .pnav{display:flex;justify-content:space-between;gap:10px;margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+  .chapters2{display:flex;flex-direction:column;gap:12px}
+  .chcard{background:var(--mint-30);border:1px solid var(--line);border-radius:12px;padding:13px}
+  .chcard .chh{display:flex;align-items:center;gap:9px;margin-bottom:6px}
+  .chcard .chn{font-family:var(--mono);font-weight:800;font-size:11px;color:#fff;background:linear-gradient(135deg,var(--emerald),var(--blueprint));width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex:none}
+  .chcard .chh .ttl{flex:1;font-weight:700;font-size:12.5px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .chcard label{font-size:10.5px;color:var(--muted);font-weight:700;display:block;margin:6px 0 3px}
+  .chcard input,.chcard textarea{background:#fff;font-size:12.5px;padding:8px 9px}
+  .qhint{font-size:11px;color:var(--muted);margin-top:5px;line-height:1.6}
+  .qhint code{font-family:var(--mono);background:var(--mint-pale);color:var(--emerald-deep);padding:1px 5px;border-radius:4px}
+
+  /* ===== direction tab ===== */
+  .subnav{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+  .subpill{appearance:none;border:1px solid var(--line);background:#fff;color:var(--muted);font-weight:700;font-size:12.5px;padding:8px 14px;border-radius:20px;cursor:pointer;display:flex;align-items:center;gap:7px;transition:all .15s}
+  .subpill .pn{font-family:var(--mono);font-size:10px;color:var(--emerald-deep)}
+  .subpill:hover{border-color:var(--emerald)}
+  .subpill.on{background:linear-gradient(135deg,var(--emerald),var(--blueprint));color:#fff;border-color:var(--emerald-deep)}
+  .subpill.on .pn{color:#fff}
+  .mdbody{color:var(--ink);font-size:13px;line-height:1.8}
+  .mdbody h2{font-size:16px;margin:6px 0 10px;color:var(--ink)}
+  .mdbody h3{font-size:14.5px;margin:18px 0 6px;color:var(--emerald-deep);border-bottom:1px solid var(--line);padding-bottom:5px}
+  .mdbody h4{font-size:13px;margin:14px 0 5px;color:var(--ink)}
+  .mdbody p{margin:0 0 7px}
+  .mdbody ul{margin:0 0 10px;padding-left:20px}
+  .mdbody li{margin-bottom:4px}
+  .mdbody blockquote{margin:0 0 10px;padding:8px 12px;background:var(--mint-50);border-left:3px solid var(--emerald);border-radius:0 8px 8px 0;color:var(--ink-soft);font-size:12px}
+  .mdbody code{font-family:var(--mono);background:var(--mint-pale);color:var(--emerald-deep);padding:1px 5px;border-radius:4px;font-size:11.5px}
+  .mdbody pre.code{margin:0 0 10px;white-space:pre-wrap;background:var(--mint-30);border:1px solid var(--line);border-radius:10px;padding:13px;font-family:var(--mono);font-size:11.5px;color:var(--ink);line-height:1.6}
+  .mdbody table.kv{margin:0 0 12px}
+  .mdbody .cbx{color:var(--emerald-deep);font-family:var(--mono);margin-right:4px;font-weight:800}
+
+  /* ===== AI studio ===== */
+  .savebar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center}
+  .saveind{font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .prow{padding:11px 0;border-bottom:1px solid var(--line-soft)}
+  .prow:last-child{border-bottom:none}
+  .prow .ptop{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:6px}
+  .prow .pname{font-family:var(--mono);font-weight:800;font-size:12.5px;color:var(--emerald-deep)}
+  .prow .pprov{font-family:var(--mono);font-size:9.5px;color:var(--muted);background:var(--mint-30);border:1px solid var(--line);padding:1px 6px;border-radius:10px}
+  .prow .pctl{display:flex;align-items:center;gap:10px}
+  .prow input[type=range]{flex:1;accent-color:var(--emerald);height:5px}
+  .prow input.pnum{width:92px;font-family:var(--mono);text-align:right;background:#fff}
+  .prow .peff{font-size:11.5px;color:var(--ink-soft);line-height:1.6;margin-top:5px}
+  .vizwrap{background:var(--mint-30);border:1px solid var(--line);border-radius:12px;padding:14px}
+  .vizbar-row{display:grid;grid-template-columns:62px 1fr 58px;align-items:center;gap:8px;margin-bottom:6px;font-size:11.5px}
+  .vizbar-row .tok{font-family:var(--mono);color:var(--ink);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .vizbar-track{background:#fff;border-radius:6px;height:18px;overflow:hidden;border:1px solid var(--line-soft)}
+  .vizbar-fill{height:100%;background:linear-gradient(90deg,var(--emerald),var(--blueprint));border-radius:6px;transition:width .25s}
+  .vizbar-row.cut .tok{color:var(--muted);text-decoration:line-through}
+  .vizbar-row.cut .vizbar-fill{background:#cfd8d5}
+  .vizbar-row .pct{font-family:var(--mono);color:var(--ink-soft);text-align:right}
+  .vizmetrics{display:flex;gap:14px;flex-wrap:wrap;margin-top:12px;font-size:11.5px;color:var(--ink-soft);border-top:1px dashed var(--line);padding-top:10px}
+  .vizmetrics b{color:var(--emerald-deep);font-family:var(--mono)}
+  #aibody .field textarea{background:#fff}
+</style>
+</head>
+<body>
+
+<div class="hud">
+  <div class="hud-in">
+    <span class="status"><span class="dot"></span>SYSTEM ONLINE</span>
+    <div class="brand">
+      <img class="logo" src="data:image/jpeg;base64,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" alt="うさうさアナウンサー">
+      <div>
+        <b>うさうさNEWS ブリッジ</b>
+        <small id="hudSub">SCRIPT GENERATOR ・ STARSHIP CONSOLE</small>
+      </div>
+    </div>
+    <span class="hud-spacer"></span>
+    <span class="nav">NAV <b id="runlen">00:00</b><span id="wallclock">--:--:--</span></span>
+  </div>
+  <div class="tabs" id="tabs">
+    <button class="tab on" data-v="howto"><span class="num">00</span>使い方</button>
+    <button class="tab" data-v="proposal"><span class="num">01</span>企画書</button>
+    <button class="tab" data-v="brief"><span class="num">02</span>企画</button>
+    <button class="tab" data-v="script"><span class="num">03</span>台本</button>
+    <button class="tab" data-v="rules"><span class="num">04</span>演出規定</button>
+    <button class="tab" data-v="direction"><span class="num">05</span>ディレクション</button>
+    <button class="tab" data-v="theory"><span class="num">06</span>勉強会</button>
+    <button class="tab" data-v="papers"><span class="num">07</span>論文で学ぶ</button>
+    <button class="tab" data-v="trouble"><span class="num">08</span>実践こまったら</button>
+    <button class="tab" data-v="consult"><span class="num">09</span>壁打ち相談</button>
+    <button class="tab" data-v="aistudio"><span class="num">10</span>AIスタジオ</button>
+    <button class="tab" data-v="export"><span class="num">11</span>書き出し</button>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- ===== 00 HOWTO ===== -->
+  <section class="view on" id="view-howto">
+    <div class="xbar">
+      <span class="xtag">EXPORT ・ 使い方</span><span class="xspace"></span>
+      <div class="seg" data-sec="howto"><button class="on" data-f="md" onclick="setSeg('howto','md')">MD</button><button data-f="txt" onclick="setSeg('howto','txt')">TXT</button></div>
+      <button class="btn sm" onclick="copySection('howto')">⧉ コピー</button>
+      <button class="btn sm gold" onclick="downloadSection('howto')">⬇ ダウンロード</button>
+    </div>
+    <div class="board">
+      <div class="board-top">
+        <div class="bt">🛸 ミッション・ブリーフィング<small>HOW TO OPERATE</small></div>
+        <div class="coord">SECTOR うさうさ研修工房 ・ STATUS: READY</div>
+      </div>
+      <div class="board-body">
+        <div class="module">
+          <h3>🎯 このツールの目的</h3>
+          <p>「うさうさNEWS（しろうさぎアナウンサー）」のニュース番組形式 教育動画の<b>制作指示書</b>を、誰でもブレなく作れるジェネレーターです。書き換えた内容は台本・キューシート・書き出しにリアルタイム連動します。</p>
+        </div>
+        <div class="module">
+          <h3><span class="step">STEP 1</span>ひな形を選ぶ</h3>
+          <p><span class="kbd">企画</span>タブで「🎬 完全再現」（全11シーンの見本）か「📝 空のひな形」（5シーン構造のみ）を読み込みます。初めてなら完全再現で全体像をつかむのがおすすめ。</p>
+        </div>
+        <div class="module">
+          <h3><span class="step">STEP 2</span>番組の基本を設定</h3>
+          <p>番組タイトル・対象者レベル・可変4変数を入力します。</p>
+          <ul>
+            <li><span class="kbd">SKILL_NAME</span> 扱うスキル　<span class="kbd">SUBTITLE</span> キャッチコピー</li>
+            <li><span class="kbd">METAPHOR</span> 比喩（料理・交通ルールなど日常概念。技術用語を技術用語で例えるのは禁止）</li>
+            <li><span class="kbd">ACTION_PROMPT</span> 視聴後の具体的な一歩</li>
+          </ul>
+        </div>
+        <div class="module">
+          <h3><span class="step">STEP 3</span>台本（キューシート）を編集</h3>
+          <p><span class="kbd">台本</span>タブで各シーンの時間・配色・ポーズ・<b>構図</b>・<b>問いの階層（L1〜L4）</b>・ナレーションを設定。↑↓で並べ替え、⧉で複製、✕で削除。上の進行表が即座に更新されます。</p>
+        </div>
+        <div class="module">
+          <h3><span class="step">STEP 4</span>固定ルールと理論を確認</h3>
+          <p><span class="kbd">演出規定</span>でキャラ・衣装・PiP・発音などの絶対ルールを確認。<span class="kbd">勉強会</span>で「なぜこの問いの階層・構図なのか」の科学的根拠（生成効果・ZPD・Hattie d値ほか）を確認できます。</p>
+        </div>
+        <div class="module">
+          <h3><span class="step">STEP 5</span>書き出す（各タブで可能）</h3>
+          <p>各タブの上部にある<b>EXPORTバー</b>で <span class="kbd">MD</span> / <span class="kbd">TXT</span> を選び、<b>コピー</b>か<b>ダウンロード</b>。<span class="kbd">書き出し</span>タブでは全タブをまとめた完全版が出ます。書き出したMarkdownを生成AIに渡せば、設計どおりの台本ドラフトが得られます。</p>
+        </div>
+        <div class="module warn">
+          <h3>⚠ 嘘つかない原則</h3>
+          <p>このツールは出典を捏造しません。理論の引用は原典に記載のもの（Slamecka &amp; Graf 1978／Roediger &amp; Karpicke 2006／Bandura 1997／Hattie 2009／Rowe 1974／Vygotsky／Dweck／Bloom）のみ。右下のうさぎちゃんが届ける名言も、実在の著名な言葉だけを使っています。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 01 PROPOSAL ===== -->
+  <section class="view" id="view-proposal">
+    <div class="xbar">
+      <span class="xtag">EXPORT ・ 企画書</span><span class="xspace"></span>
+      <div class="seg" data-sec="proposal"><button class="on" data-f="md" onclick="setSeg('proposal','md')">MD</button><button data-f="txt" onclick="setSeg('proposal','txt')">TXT</button></div>
+      <button class="btn sm" onclick="copySection('proposal')">⧉ コピー</button>
+      <button class="btn sm gold" onclick="downloadSection('proposal')">⬇ ダウンロード</button>
+    </div>
+    <div class="lead"><b>企画書をステップバイステップで。</b>「何を・誰に・なぜ・どう作るか」を順番に埋めるだけで、配布できる企画書になります。完成したら<b>「台本タブに展開」</b>で、そのまま制作指示書・台本に落とし込めます。迷ったら<b>サンプル</b>を読み込んで、書き換えながら作るのが近道です。</div>
+
+    <div class="panel">
+      <div class="presets" style="margin-bottom:14px">
+        <button class="btn primary" onclick="loadProposal('sample')">📂 サンプルを読み込む（工程別ソクラテス式）</button>
+        <button class="btn" onclick="loadProposal('blank')">🆕 空の企画書ではじめる</button>
+      </div>
+
+      <div class="stepper" id="pstepper"></div>
+
+      <!-- STEP 0 概要 -->
+      <div class="pstep on" data-p="0">
+        <h3>STEP 1／企画概要</h3>
+        <p class="pdesc">この動画を「何のために・誰に向けて」作るかを決めます。ここがブレると全体がブレます。</p>
+        <div class="grid">
+          <div class="field full"><label class="lab">番組タイトル</label><input type="text" id="pr_title" oninput="bindProposal()"></div>
+          <div class="field full"><label class="lab">特集テーマ</label><input type="text" id="pr_feature" oninput="bindProposal()"></div>
+          <div class="field"><label class="lab">対象視聴者</label><input type="text" id="pr_audience" oninput="bindProposal()"></div>
+          <div class="field"><label class="lab">形式</label><input type="text" id="pr_format" oninput="bindProposal()"></div>
+          <div class="field full"><label class="lab">解決する課題（なぜ作るか）</label><textarea id="pr_problem" rows="2" oninput="bindProposal()"></textarea></div>
+          <div class="field"><label class="lab">尺（目安）</label><input type="text" id="pr_length" oninput="bindProposal()"></div>
+        </div>
+      </div>
+
+      <!-- STEP 1 ねらい -->
+      <div class="pstep" data-p="1">
+        <h3>STEP 2／ねらい・学習目標</h3>
+        <p class="pdesc">視聴後に「どうなってほしいか」を言語化します。情報提供で終わらせず、行動変容まで設計します。</p>
+        <div class="grid">
+          <div class="field full"><label class="lab">学習目標（この動画で身につくこと）</label><textarea id="pr_goal" rows="2" oninput="bindProposal()"></textarea></div>
+          <div class="field full"><label class="lab">行動変容ゴール（明日からやること）</label><textarea id="pr_behavior" rows="2" oninput="bindProposal()"></textarea></div>
+          <div class="field"><label class="lab">認知レベル（Bloom）</label><select id="pr_bloom" onchange="bindProposal()"><option>記憶・理解</option><option>理解・応用</option><option>応用・分析</option><option>分析・評価・創造</option></select></div>
+        </div>
+      </div>
+
+      <!-- STEP 2 根拠 -->
+      <div class="pstep" data-p="2">
+        <h3>STEP 3／根拠（エビデンス）</h3>
+        <p class="pdesc">何に基づく企画かを明記します（嘘つかない原則）。1行に1つ。例：ソクラテス式問答法、Paul &amp; Elderの6種の問い、ZPD、テスト効果、Guo 2014 など。</p>
+        <div class="field full"><label class="lab">根拠リスト（1行1項目）</label><textarea id="pr_evidence" rows="5" oninput="bindProposal()"></textarea></div>
+      </div>
+
+      <!-- STEP 3 構成案 -->
+      <div class="pstep" data-p="3">
+        <h3>STEP 4／構成案（章・フェーズ）</h3>
+        <p class="pdesc">章（またはフェーズ）ごとに、キーメッセージと「問いかけ」を並べます。サンプルのように工程別でもOK。</p>
+        <div class="chapters2" id="chapterList"></div>
+        <div class="addbar"><button class="btn gold sm" onclick="addChapter()">＋ 章を追加</button></div>
+        <p class="qhint">問いかけは1行1問。<code>問い｜Why（なぜこの問いか）</code> の形式で書くと、企画書にWhy付きで出力されます（｜は全角の縦棒）。</p>
+      </div>
+
+      <!-- STEP 4 演出 -->
+      <div class="pstep" data-p="4">
+        <h3>STEP 5／演出・トンマナ</h3>
+        <p class="pdesc">キャラクター・配色・決めゼリフを決めます。固定ルールは「演出規定」タブと連動させると安全です。</p>
+        <div class="grid">
+          <div class="field full"><label class="lab">キャラクター・話し方</label><textarea id="pr_character" rows="2" oninput="bindProposal()"></textarea></div>
+          <div class="field"><label class="lab">配色</label><input type="text" id="pr_color" oninput="bindProposal()"></div>
+          <div class="field full"><label class="lab">決めゼリフ</label><input type="text" id="pr_closing" oninput="bindProposal()"></div>
+        </div>
+      </div>
+
+      <!-- STEP 5 配布 -->
+      <div class="pstep" data-p="5">
+        <h3>STEP 6／配布・成功指標</h3>
+        <p class="pdesc">どんな形で出し、何で成功を測るかを決めます。ここまで決めると企画が「動かせる」状態になります。</p>
+        <div class="grid">
+          <div class="field full"><label class="lab">アウトプット形式</label><input type="text" id="pr_outputs" oninput="bindProposal()"></div>
+          <div class="field"><label class="lab">公開先</label><input type="text" id="pr_channel" oninput="bindProposal()"></div>
+          <div class="field full"><label class="lab">成功指標（KPI）</label><textarea id="pr_kpi" rows="2" oninput="bindProposal()"></textarea></div>
+        </div>
+      </div>
+
+      <!-- STEP 6 完成 -->
+      <div class="pstep" data-p="6">
+        <h3>STEP 7／企画書 完成・展開</h3>
+        <p class="pdesc">これで完成です。コピー／ダウンロードして配布するか、台本タブに展開して制作へ進みましょう。</p>
+        <div class="export-tools" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+          <button class="btn primary sm" onclick="proposalToScript()">▶ この企画で台本を生成（台本タブへ）</button>
+          <button class="btn sm" onclick="copySection('proposal')">📋 企画書をコピー</button>
+          <button class="btn gold sm" onclick="downloadSection('proposal')">⬇ ダウンロード</button>
+        </div>
+        <div class="out"><div class="out-bar"><span class="fn" id="proposalFn">proposal.md</span></div><pre class="code" id="proposalCode" style="max-height:48vh"></pre></div>
+      </div>
+
+      <div class="pnav">
+        <button class="btn ghost sm" id="pPrev" onclick="prevStep()">◀ 戻る</button>
+        <button class="btn primary sm" id="pNext" onclick="nextStep()">次へ ▶</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 02 BRIEF ===== -->
+  <section class="view" id="view-brief">
+    <div class="xbar">
+      <span class="xtag">EXPORT ・ 企画</span><span class="xspace"></span>
+      <div class="seg" data-sec="brief"><button class="on" data-f="md" onclick="setSeg('brief','md')">MD</button><button data-f="txt" onclick="setSeg('brief','txt')">TXT</button></div>
+      <button class="btn sm" onclick="copySection('brief')">⧉ コピー</button>
+      <button class="btn sm gold" onclick="downloadSection('brief')">⬇ ダウンロード</button>
+    </div>
+    <div class="panel">
+      <h2><span class="tag">PRESET</span>ひな形を読み込む</h2>
+      <p class="sub">「完全再現」は『「教えない」指導技術 マスタークラス』をそのまま展開。「空のひな形」は構造だけ残してゼロから作れます。</p>
+      <div class="presets">
+        <button class="btn primary" onclick="loadPreset('master')">🎬 完全再現を読み込む</button>
+        <button class="btn" onclick="loadPreset('blank')">📝 空のひな形を読み込む</button>
+        <button class="btn ghost" onclick="resetAll()">↺ リセット</button>
+      </div>
+    </div>
+    <div class="panel">
+      <h2><span class="tag">BRIEF</span>番組の基本設計</h2>
+      <p class="sub">ここを書き換えるだけで、台本・キューシート・書き出しがすべて連動します。</p>
+      <div class="grid">
+        <div class="field full"><label class="lab">番組タイトル <span class="hint">『 』で囲まれて出力</span></label><input type="text" id="m_programTitle" oninput="bind()"></div>
+        <div class="field"><label class="lab">アナウンサー呼称</label><input type="text" id="m_announcer" oninput="bind()"></div>
+        <div class="field"><label class="lab">対象者レベル</label><select id="m_audienceLevel" onchange="bind()"><option>IT未経験・新人（初級）</option><option>現場1〜3年（中級）</option><option>リーダー・指導者（上級）</option></select></div>
+        <div class="field"><label class="lab">スキル名 <span class="v">SKILL_NAME</span></label><input type="text" id="m_skillName" oninput="bind()"><span class="help">この動画で扱う「不足スキル」。</span></div>
+        <div class="field"><label class="lab">サブタイトル <span class="v">SUBTITLE</span></label><input type="text" id="m_subtitle" oninput="bind()"><span class="help">ベネフィットを強調したキャッチコピー。</span></div>
+        <div class="field full"><label class="lab">比喩 <span class="v">METAPHOR</span></label><input type="text" id="m_metaphor" oninput="bind()"><span class="help">推奨：料理・交通ルールなど日常概念／禁止：技術用語を技術用語で例える。</span></div>
+        <div class="field full"><label class="lab">行動喚起 <span class="v">ACTION_PROMPT</span></label><input type="text" id="m_actionPrompt" oninput="bind()"><span class="help">視聴後に取ってほしい具体的な一歩。</span></div>
+        <div class="field"><label class="lab">総尺（目安）</label><input type="text" id="m_totalLength" oninput="bind()"></div>
+        <div class="field"><label class="lab">基調カラー（通常進行）</label><select id="m_baseColor" onchange="bind()"><option value="青">青（安心／挨拶／How）</option><option value="赤">赤（核心／Why）</option></select></div>
+        <div class="field full"><label class="lab">決めゼリフ（エンディング）</label><input type="text" id="m_closingLine" oninput="bind()"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 02 SCRIPT ===== -->
+  <section class="view" id="view-script">
+    <div class="xbar">
+      <span class="xtag">EXPORT ・ 台本</span><span class="xspace"></span>
+      <div class="seg" data-sec="script"><button class="on" data-f="md" onclick="setSeg('script','md')">MD</button><button data-f="txt" onclick="setSeg('script','txt')">TXT</button></div>
+      <button class="btn sm" onclick="copySection('script')">⧉ コピー</button>
+      <button class="btn sm gold" onclick="downloadSection('script')">⬇ ダウンロード</button>
+    </div>
+    <div class="panel">
+      <div class="cue-head">
+        <h2 style="margin:0"><span class="tag">RUNDOWN</span>キューシート（進行表）</h2>
+        <div class="cue-meta" id="cueChips"></div>
+      </div>
+      <p class="sub" style="margin-bottom:14px">下の「シーン編集」を書き換えると、この進行表がリアルタイムで更新されます。</p>
+      <div class="sheet">
+        <div class="sheet-top">
+          <div class="t" id="sheetTitle">—<small id="sheetSub"></small></div>
+          <div class="rd" id="sheetClock">TRT --:--</div>
+        </div>
+        <div class="cue" id="cueList"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2><span class="tag">EDIT</span>シーン編集</h2>
+      <p class="sub">幕／時間／構図／ポーズ／配色／問いの階層／ナレーションを設定。並べ替え・追加・削除も可能。</p>
+      <div class="scenes" id="sceneEditor"></div>
+      <div class="addbar">
+        <button class="btn gold sm" onclick="addScene()">＋ シーンを追加</button>
+        <button class="btn ghost sm" onclick="loadPreset('master')">↺ 完全再現の構成に戻す</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 03 RULES ===== -->
+  <section class="view" id="view-rules">
+    <div class="xbar">
+      <span class="xtag">EXPORT ・ 演出規定</span><span class="xspace"></span>
+      <div class="seg" data-sec="rules"><button class="on" data-f="md" onclick="setSeg('rules','md')">MD</button><button data-f="txt" onclick="setSeg('rules','txt')">TXT</button></div>
+      <button class="btn sm" onclick="copySection('rules')">⧉ コピー</button>
+      <button class="btn sm gold" onclick="downloadSection('rules')">⬇ ダウンロード</button>
+    </div>
+    <div class="panel">
+      <h2><span class="tag">LOCK</span>絶対固定ルール</h2>
+      <p class="sub">ブランドのブレを防ぐ固定パラメータ。台本の冒頭規定として書き出されます。</p>
+      <div class="rules">
+        <div class="rule lock"><h3><span class="ic">🐰</span>キャラクター固定</h3><textarea id="r_character" oninput="bind()"></textarea></div>
+        <div class="rule lock"><h3><span class="ic">👔</span>衣装・小道具</h3><textarea id="r_costume" oninput="bind()"></textarea></div>
+        <div class="rule"><h3><span class="ic">🖼️</span>PiP（小窓）固定</h3><textarea id="r_pip" oninput="bind()"></textarea></div>
+        <div class="rule"><h3><span class="ic">🎨</span>配色設計</h3><textarea id="r_color" oninput="bind()"></textarea></div>
+        <div class="rule"><h3><span class="ic">🎙️</span>音声・口調</h3><textarea id="r_voice" oninput="bind()"></textarea></div>
+        <div class="rule"><h3><span class="ic">🔤</span>発音指定</h3><textarea id="r_pron" oninput="bind()"></textarea></div>
+        <div class="rule" style="grid-column:1/-1;border-left-color:var(--rose)"><h3><span class="ic" style="background:#ffe4e4">🚫</span>禁止事項（AI独自解釈の禁止）</h3><textarea id="r_forbid" oninput="bind()"></textarea></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 05 DIRECTION ===== -->
+  <section class="view" id="view-direction">
+    <div class="xbar">
+      <span class="xtag">EXPORT ・ ディレクション設計書</span><span class="xspace"></span>
+      <div class="seg" data-sec="direction"><button class="on" data-f="md" onclick="setSeg('direction','md')">MD</button><button data-f="txt" onclick="setSeg('direction','txt')">TXT</button></div>
+      <button class="btn sm" onclick="copySection('direction')">⧉ コピー</button>
+      <button class="btn sm gold" onclick="downloadSection('direction')">⬇ ダウンロード</button>
+    </div>
+    <div class="lead"><b>ディレクション設計書。</b>動画制作プロジェクトを<b>要件定義 → 詳細設計 → 実装仕様 → WBS → NotebookLM運用</b>の5部でまとめます。企画書・番組設定・台本の<b>現在の内容から自動生成</b>されるので、各タブを編集するとここも更新されます。書き出しは5部まとめて1ファイルになります。</div>
+
+    <div class="panel">
+      <h2><span class="tag">PROJECT</span>体制・期間</h2>
+      <p class="sub">設計書のヘッダーに入ります（任意）。</p>
+      <div class="grid">
+        <div class="field"><label class="lab">PM／ディレクター</label><input type="text" id="d_director" placeholder="例：石黒（うさうさ研修工房）" oninput="bindDirection()"></div>
+        <div class="field"><label class="lab">制作期間</label><input type="text" id="d_period" placeholder="例：2026/07/01〜07/10" oninput="bindDirection()"></div>
+        <div class="field full"><label class="lab">体制（任意）</label><input type="text" id="d_team" placeholder="例：企画・台本＝本人／レビュー＝芳賀／ナレーション＝AI音声" oninput="bindDirection()"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2><span class="tag">DOC</span>5部構成</h2>
+      <p class="sub">ピルで切り替えて確認。すべて上の EXPORT で一括書き出しできます。</p>
+      <div class="subnav" id="dsubnav"></div>
+      <div id="dbody"></div>
+    </div>
+  </section>
+
+  <!-- ===== 06 THEORY ===== -->
+  <section class="view" id="view-theory">
+    <div class="xbar">
+      <span class="xtag">EXPORT ・ 勉強会</span><span class="xspace"></span>
+      <div class="seg" data-sec="theory"><button class="on" data-f="md" onclick="setSeg('theory','md')">MD</button><button data-f="txt" onclick="setSeg('theory','txt')">TXT</button></div>
+      <button class="btn sm" onclick="copySection('theory')">⧉ コピー</button>
+      <button class="btn sm gold" onclick="downloadSection('theory')">⬇ ダウンロード</button>
+    </div>
+    <div class="lead"><b>カスタマイズ勉強会。</b>この番組フォーマットは「答えを言わない指導術」を科学的に再現する設計です。各シーンの「問いの階層」「構図」を選ぶ判断基準にしてください。</div>
+    <div class="cards">
+      <div class="card"><h3>生成効果と検索練習効果</h3><p class="cite">Slamecka &amp; Graf (1978)／Roediger &amp; Karpicke (2006)</p><p>自ら生成（アウトプット）する／思い出す行為が記憶を強化。答えの提示を厳禁とし、受動的学習比で<b>定着率を約30〜40%向上</b>。</p></div>
+      <div class="card"><h3>自己効力感</h3><p class="cite">Bandura (1997)</p><p>「自力で解けた」成功体験が内発的動機を生む。初心者へのL3以上の連発は自己効力感の喪失を招くため難易度調整が要。</p></div>
+      <div class="card"><h3>可視化された学習（効果量 d）</h3><p class="cite">Hattie (2009)</p><p>ヒンジポイント <b>d=0.4</b>、フィードバック <b>d=0.73</b>。単なる情報提示でなく d=0.73 を超える問いかけを目標値に。</p></div>
+      <div class="card"><h3>ZPD と 黄金の沈黙</h3><p class="cite">Vygotsky／Rowe (1974)</p><p>「支援があればできる」領域に問いを投げ、沈黙で回答の質・量・論理性を高める。<br><span class="pill b">L1/L2：7〜15秒</span><span class="pill r">L3/L4：30秒</span></p></div>
+      <div class="card wide"><h3>ソクラテス式問答法の4階層 × スライド構図マッピング</h3><p class="cite">問いの階層に応じて構図を選び、ワーキングメモリを最適化</p>
+        <table class="kv"><tr><th>階層</th><th>名称・目的</th><th>例（IT）</th><th>対応構図</th></tr>
+        <tr><td><span class="lvtag">L1</span></td><td><b>確認の問い</b>／現在地把握</td><td>「この処理、何をしていると思う？」</td><td>三分割法・日の丸・対称・三角</td></tr>
+        <tr><td><span class="lvtag">L2</span></td><td><b>掘り下げの問い</b>／根拠の可視化</td><td>「なぜそう判断した？根拠は？」</td><td>三分割法・対称</td></tr>
+        <tr><td><span class="lvtag">L3</span></td><td><b>仮説の問い</b>／推論・転移</td><td>「もしアクセスが100倍になったら？」</td><td>対角線・リーディングライン</td></tr>
+        <tr><td><span class="lvtag">L4</span></td><td><b>統合の問い</b>／メタ認知・定着</td><td>「今日の設計原則を一言でまとめると？」</td><td>黄金螺旋・黄金比グリッド・額縁</td></tr></table>
+        <p style="margin-top:10px">学習者が窮した／初心者の反応時はL3/L4を停止し<b>L1へフォールバック</b>。Bloomに沿い低次→高次へ段階化、習熟に応じ支援を減らす<b>Fading</b>を行う。</p></div>
+      <div class="card wide"><h3>教育的介入の対照表（推奨 / NG）</h3>
+        <table class="kv"><tr><th>項目</th><th>推奨（成功）</th><th>NG（失敗）</th></tr>
+        <tr><td>問いの形式</td><td>「どう思いますか？」と好奇心を刺激</td><td>「〜ですよね？」という誘導尋問</td></tr>
+        <tr><td>沈黙の実装</td><td><b>[沈黙: 15秒]</b> タグの強制挿入</td><td>問いの直後にすぐ解説</td></tr>
+        <tr><td>ヒント提供</td><td>見落とした「証拠（エラー等）」への着目</td><td>答えが透ける過剰な助言</td></tr>
+        <tr><td>受容</td><td>誤答も「一つの視点」として受け止める</td><td>期待する正解以外を即否定</td></tr></table></div>
+      <div class="card"><h3>構図カタログ（9つの型）</h3><p class="cite">引き算の原則：背景ノイズを排除し主役へ集中</p>
+        <p><span class="pill b">三分割法</span><span class="pill b">日の丸</span><span class="pill b">対称</span><span class="pill b">三角</span><span class="pill r">対角線</span><span class="pill r">リーディングライン</span><span class="pill r">黄金螺旋</span><span class="pill r">黄金比グリッド</span><span class="pill r">額縁</span></p>
+        <p style="margin-top:8px">NG回避：「なんでも真ん中」「水平垂直のズレ」を厳禁。</p></div>
+      <div class="card"><h3>UDL と Human-in-the-Loop</h3><p class="cite">学びのユニバーサルデザイン</p><p>提示（視覚・聴覚・テキスト）／行動と表現／取り組みの多様性を確保。比喩案は解説前に<b>人間が承認</b>、ZPD逸脱時は難易度を手動調整。</p></div>
+    </div>
+  </section>
+
+  <!-- ===== 05 PAPERS ===== -->
+  <section class="view" id="view-papers">
+    <div class="xbar">
+      <span class="xtag">EXPORT ・ 論文で学ぶ</span><span class="xspace"></span>
+      <div class="seg" data-sec="papers"><button class="on" data-f="md" onclick="setSeg('papers','md')">MD</button><button data-f="txt" onclick="setSeg('papers','txt')">TXT</button></div>
+      <button class="btn sm" onclick="copySection('papers')">⧉ コピー</button>
+      <button class="btn sm gold" onclick="downloadSection('papers')">⬇ ダウンロード</button>
+    </div>
+    <div class="lead"><b>解析動画・教育動画を、査読済み研究で裏打ちする。</b>「なんとなく良さそう」ではなく、エビデンスに基づいて尺・構図・問いを決めます。論文学習には <b>NotebookLM</b> が相性抜群です。アップロードした論文だけを根拠に回答し、出典を示すため、捏造（ハルシネーション）を抑えられます — まさに「嘘つかない原則」と同じ思想です。</div>
+
+    <div class="panel">
+      <h2><span class="tag">PAPERS</span>動画づくりに効く 査読済み研究</h2>
+      <p class="sub">下記はいずれも実在の研究です。最終的な数値・主張は必ず原典で確認してください（NotebookLMに入れて「その記述はどのソースのどこ？」と聞くのが確実）。</p>
+      <div class="cards">
+        <div class="card">
+          <h3>動画の尺と演出が「視聴維持」を左右する</h3>
+          <p class="cite">Guo, Kim &amp; Rubin (2014), ACM L@S</p>
+          <p class="doi">DOI: 10.1145/2556325.2566239 ・ edX 4講座・690万視聴セッション</p>
+          <div class="takeaway"><b>動画への示唆：</b>短い動画ほど engagement が高く、<b>1本6分以内</b>が目安。トーキングヘッド＋スライドの併用、Khan式の手書き、話速やや速め＋高い熱量が効く。高品質な録画講義でも、ただ長いと engagement は伸びない。</div>
+        </div>
+        <div class="card">
+          <h3>効果的な教育動画の原則</h3>
+          <p class="cite">Brame (2016), CBE—Life Sciences Education</p>
+          <p class="doi">DOI: 10.1187/cbe.16-03-0125</p>
+          <div class="takeaway"><b>動画への示唆：</b>「認知負荷の管理」「学習者の engagement」「能動的な学習の促進」の3軸で設計する。シグナリング・セグメンティング・余計な情報の削減（weeding）など、具体的な指針を提供。</div>
+        </div>
+        <div class="card">
+          <h3>マルチメディア学習の認知理論</h3>
+          <p class="cite">Mayer（Cognitive Theory of Multimedia Learning）</p>
+          <div class="takeaway"><b>動画への示唆：</b>言葉＋絵を組み合わせる（multimedia原則）、関連する語と図を近くに置く、ナレーションと冗長な字幕を重ねない（redundancy）、重要箇所を強調（signaling）。この番組の「構図×ナレーション」設計の土台。</div>
+        </div>
+        <div class="card">
+          <h3>認知負荷理論</h3>
+          <p class="cite">Sweller ほか（Cognitive Load Theory）</p>
+          <div class="takeaway"><b>動画への示唆：</b>本質的負荷・外在的負荷・適切な負荷を区別し、<b>外在的負荷を削る</b>。1スライド3情報・引き算の原則・余白の確保は、ワーキングメモリを守るための実装。</div>
+        </div>
+        <div class="card">
+          <h3>検索練習効果（テスト効果）</h3>
+          <p class="cite">Roediger &amp; Karpicke (2006)</p>
+          <div class="takeaway"><b>動画への示唆：</b>視聴者に「思い出させる」設計が定着を高める。[思考プロンプト]・白紙想起・問いかけを動画内に必ず仕込む。</div>
+        </div>
+        <div class="card">
+          <h3>フィードバックの効果量</h3>
+          <p class="cite">Hattie (2009)</p>
+          <div class="takeaway"><b>動画への示唆：</b>フィードバック d=0.73。単なる情報提示で終わらせず、問いかけ＋気づきの提供へ。動画でも「問い→間→自己説明」を組み込む。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="board">
+      <div class="board-top"><div class="bt">📓 NotebookLM 学習ワークフロー<small>OFFICIAL DOCS BASED</small></div><div class="coord">SOURCE-GROUNDED ・ NO HALLUCINATION</div></div>
+      <div class="board-body">
+        <p style="margin:0 0 12px;color:var(--ink);font-size:13px">NotebookLM は、<b>自分がアップロードしたソースだけ</b>を根拠に回答し、引用（出典）を付けます。査読論文を読み込めば、根拠付きで学べて、そのまま動画素材化できます。</p>
+        <div class="nblm">
+          <div class="nblm-step"><span class="n">1</span><p><b>ノートを作る：</b>notebooklm.google.com でノートブックを新規作成。</p></div>
+          <div class="nblm-step"><span class="n">2</span><p><b>論文を入れる：</b>PDF・Googleドキュメント・スライド・Web URL・公開YouTube（字幕付き）・テキスト・音声・EPUB をソースに追加（1ソース最大50万語）。長いPDFは100ページ未満に分割すると取りこぼしを防げます。</p></div>
+          <div class="nblm-step"><span class="n">3</span><p><b>根拠を確認：</b>回答に対し「その記述は<b>どのソースのどのセクション</b>から？」と聞いて出典を必ず検証。複数ソース時はソース名を明示すると精度が上がります。</p></div>
+          <div class="nblm-step"><span class="n">4</span><p><b>素材化（Studio）：</b>Audio Overview／Video Overview（シネマティック含む）／Mind Map／Report／Infographic（Scientific・Kawaii 等10スタイル）／Flashcards・Quiz を生成。解析動画の下地や台本に流用。</p></div>
+          <div class="nblm-step"><span class="n">5</span><p><b>関連論文を集める：</b>Discover Sources（Fast）や Deep Research で関連ソースを引用付きで収集し、ワンクリックで取り込み。</p></div>
+          <div class="nblm-step"><span class="n">6</span><p><b>役割を固定：</b>Custom Instructions（最大1万字）で「役割・文脈・出力形式」を指定すると回答の質が安定します。</p></div>
+        </div>
+        <div class="docnote">公式ヘルプ：<a href="https://support.google.com/notebooklm/" target="_blank" rel="noopener">support.google.com/notebooklm</a> ／ 製品：<a href="https://notebooklm.google.com" target="_blank" rel="noopener">notebooklm.google.com</a>　仕様は更新されることがあるため、最新は公式ドキュメントで確認してください。</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 06 TROUBLE ===== -->
+  <section class="view" id="view-trouble">
+    <div class="xbar">
+      <span class="xtag">EXPORT ・ 実践こまったら</span><span class="xspace"></span>
+      <div class="seg" data-sec="trouble"><button class="on" data-f="md" onclick="setSeg('trouble','md')">MD</button><button data-f="txt" onclick="setSeg('trouble','txt')">TXT</button></div>
+      <button class="btn sm" onclick="copySection('trouble')">⧉ コピー</button>
+      <button class="btn sm gold" onclick="downloadSection('trouble')">⬇ ダウンロード</button>
+    </div>
+    <div class="lead"><b>実践で手が止まったら、ここ。</b>制作・指導の現場で起きがちな「困った」を、原因（理論）と具体的な打ち手にひも付けました。</div>
+    <div class="panel">
+      <h2><span class="tag">FIELD</span>困りごと → 原因 → 打ち手</h2>
+      <p class="sub">そのまま勉強会の配布資料にも使えます（右上からMD/TXTで書き出し）。</p>
+      <div class="trouble">
+        <div class="tcard"><h3><span class="q">Q1</span>比喩（METAPHOR）が思い浮かばない</h3><p class="cause"><b>原因：</b>対象者の既知概念と結びついていない／<b>認知負荷</b>が高い。</p><div class="fix"><b>打ち手：</b>料理・交通ルールなど日常概念から借りる。技術用語を技術用語で例えない。1つの比喩で説明しきろうとせず、要点に絞る。</div><div class="ref">ref. Cognitive Load / METAPHORガードレール</div></div>
+        <div class="tcard"><h3><span class="q">Q2</span>問いが難しすぎる気がする</h3><p class="cause"><b>原因：</b><b>ZPD逸脱</b>。初心者にL3以上を連発し、思考停止・自己効力感の喪失。</p><div class="fix"><b>打ち手：</b>L3→L1へフォールバックし足場を再構築。確認の問い（L1）から段階化。Wait Time（L1/L2は7〜15秒）を確保。</div><div class="ref">ref. Vygotsky ZPD / Bandura 1997</div></div>
+        <div class="tcard"><h3><span class="q">Q3</span>動画の尺が長くなる</h3><p class="cause"><b>原因：</b>1本に詰め込みすぎ。視聴維持が落ちる。</p><div class="fix"><b>打ち手：</b><b>6分以内</b>を目安に分割（Guo 2014）。1スライド3情報。冗長な情報をweeding。1幕＝1メッセージに。</div><div class="ref">ref. Guo, Kim &amp; Rubin 2014 / Brame 2016</div></div>
+        <div class="tcard"><h3><span class="q">Q4</span>受講生・視聴者が黙ってしまう</h3><p class="cause"><b>原因：</b>沈黙を「失敗」と捉え、すぐ答えを与えている。心理的安全性の不足。</p><div class="fix"><b>打ち手：</b>沈黙は<b>Wait Time</b>。待つ。「詰まってるところ、一緒に考えよう」と伴走。+1技法・SBIで小さく承認。</div><div class="ref">ref. Rowe 1974 / SBI・+1</div></div>
+        <div class="tcard"><h3><span class="q">Q5</span>台本生成でAIがすぐ答えを言う</h3><p class="cause"><b>原因：</b>プロンプトに「答えを言わない」制約と「間」が無い。</p><div class="fix"><b>打ち手：</b><b>[思考プロンプト]・[沈黙: 15秒]</b>タグを強制挿入。「答えを与えず問いかけで自己説明を引き出す」を明記。誘導尋問・過剰な助言（NGパターン）を禁止。</div><div class="ref">ref. 生成効果 / 教育的介入の対照表</div></div>
+        <div class="tcard"><h3><span class="q">Q6</span>出典が合っているか不安</h3><p class="cause"><b>原因：</b>記憶ベースの引用は捏造リスク。</p><div class="fix"><b>打ち手：</b><b>嘘つかない原則</b>を徹底。論文はNotebookLMに入れ「その記述はどのソースのどこ？」で検証。原典DOIを必ず併記。</div><div class="ref">ref. NotebookLM source-grounding</div></div>
+        <div class="tcard"><h3><span class="q">Q7</span>テンポが単調になる</h3><p class="cause"><b>原因：</b>同じ画作りの連続でワーキングメモリが飽和。</p><div class="fix"><b>打ち手：</b>トーキングヘッド↔スライドを交互に。Khan式手書きを挟む。配色の緩急（青→核心で赤＋スナップズーム）。構図を問いの階層に合わせて変える。</div><div class="ref">ref. Guo 2014 / 構図×階層マッピング</div></div>
+        <div class="tcard"><h3><span class="q">Q8</span>ポーズ・構図の選び方に迷う</h3><p class="cause"><b>原因：</b>問いの階層と画作りが対応していない。</p><div class="fix"><b>打ち手：</b>L1/L2＝三分割・日の丸・対称・三角（安定）、L3/L4＝対角線・リーディングライン・黄金螺旋・黄金比グリッド・額縁（思考促進）。勉強会のマッピング表を参照。</div><div class="ref">ref. 4階層×構図マッピング</div></div>
+        <div class="tcard"><h3><span class="q">Q9</span>キャラクターがブレる</h3><p class="cause"><b>原因：</b>AIの独自解釈（擬人化・リアル化・変形）。</p><div class="fix"><b>打ち手：</b>演出規定の<b>絶対固定ルール</b>を冒頭に明記。公式ポーズの切り替えのみで構成。紺スーツ・赤蝶ネクタイ・白シャツ＋マイク・にんじんを固定。</div><div class="ref">ref. Zero Hallucination / 固定ルール</div></div>
+        <div class="tcard"><h3><span class="q">Q10</span>一人で煮詰まる</h3><p class="cause"><b>原因：</b>視点が固定され、抜け道が見えない。</p><div class="fix"><b>打ち手：</b><b>壁打ち相談</b>タブへ。「やさしい先輩」で気持ちを整理、「厳しいが真剣」で弱点を直視。生成したプロンプトをNotebookLM/Claudeに貼って深掘り。</div><div class="ref">ref. 壁打ち相談</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 07 CONSULT ===== -->
+  <section class="view" id="view-consult">
+    <div class="xbar">
+      <span class="xtag">EXPORT ・ 壁打ち相談</span><span class="xspace"></span>
+      <div class="seg" data-sec="consult"><button class="on" data-f="md" onclick="setSeg('consult','md')">MD</button><button data-f="txt" onclick="setSeg('consult','txt')">TXT</button></div>
+      <button class="btn sm" onclick="copySection('consult')">⧉ コピー</button>
+      <button class="btn sm gold" onclick="downloadSection('consult')">⬇ ダウンロード</button>
+    </div>
+    <div class="lead"><b>AI壁打ち相談。</b>相談内容とモードを選ぶと、AIに貼り付けてそのまま使える<b>相談プロンプト</b>を生成します。下のセルフ質問だけでも頭が整理できます。NotebookLMで使えば、自分の資料・論文に基づいた（出典付きの）壁打ちになります。</div>
+
+    <div class="panel">
+      <h2><span class="tag">MODE</span>相手のモードを選ぶ</h2>
+      <p class="sub">どちらも「答えを即答しない・本人に考えさせる」という本ツールの指導哲学を守ります。</p>
+      <div class="modes">
+        <div class="mode-btn gentle on" id="mode-gentle" onclick="setConsultMode('gentle')">
+          <span class="chk">✓</span>
+          <div class="mt">🌷 やさしい先輩<span class="badge">SAFE</span></div>
+          <div class="md">心理的安全性を最優先。まず肯定し、小さな問いで導く。詰まっても急かさず、必要ならL1へ戻して足場をかけ直す。落ち込んでいる時・最初の一歩を踏み出したい時に。</div>
+        </div>
+        <div class="mode-btn strict" id="mode-strict" onclick="setConsultMode('strict')">
+          <span class="chk">✓</span>
+          <div class="mt">🔥 厳しいが真剣<span class="badge">SHARP</span></div>
+          <div class="md">妥協しない高い基準。根拠・具体・数値を要求し、思い込みを率直に指摘。ただし人格でなく行動・成果物に焦点（SBI-E）。品質を一段上げたい時・仕上げの直前に。</div>
+        </div>
+      </div>
+      <div class="grid">
+        <div class="field"><label class="lab">相談カテゴリ</label>
+          <select id="c_category" onchange="bindConsult()">
+            <option>台本構成・流れ</option><option>比喩（METAPHOR）が浮かばない</option><option>問いの難易度（ZPD）</option>
+            <option>尺・テンポ</option><option>受講生・視聴者の反応</option><option>構図・ポーズの選択</option>
+            <option>NotebookLM活用</option><option>論文の読み方・探し方</option><option>その他</option>
+          </select></div>
+        <div class="field"><label class="lab">相談相手に渡す宛先（任意）</label>
+          <select id="c_target" onchange="bindConsult()"><option>NotebookLM（自分の資料に基づく）</option><option>Claude / Gemini（一般相談）</option></select></div>
+        <div class="field full"><label class="lab">相談内容 <span class="hint">いま詰まっていること・壁打ちしたいこと</span></label>
+          <textarea id="c_situation" rows="4" placeholder="例：新人向けの『Docker入門』動画で、比喩が技術用語っぽくなってしまい、未経験者にピンとこない気がする。どう直せばいい？" oninput="bindConsult()"></textarea></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2><span class="tag">SELF</span>セルフ壁打ち（オフラインでも考えられる問い）</h2>
+      <p class="sub" id="consultQTitle">—</p>
+      <div class="consult-q" id="consultQ"></div>
+    </div>
+
+    <div class="panel">
+      <h2><span class="tag">PROMPT</span>生成された相談プロンプト</h2>
+      <p class="sub">右上の EXPORT、またはここのボタンでコピー／ダウンロードして、AIに貼り付けてください。</p>
+      <div class="export-tools" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+        <button class="btn primary sm" onclick="copySection('consult')">📋 プロンプトをコピー</button>
+        <button class="btn gold sm" onclick="downloadSection('consult')">⬇ ダウンロード</button>
+      </div>
+      <div class="out"><div class="out-bar"><span class="fn" id="consultFn">consult.md</span></div><pre class="code" id="consultCode" style="max-height:46vh"></pre></div>
+      <div class="docnote">NotebookLMで使う場合：自分の設計書・台本・査読論文をソースに追加 → このプロンプトを貼る → 回答の出典を「どのソースのどこ？」で確認。公式ヘルプ <a href="https://support.google.com/notebooklm/" target="_blank" rel="noopener">support.google.com/notebooklm</a></div>
+    </div>
+  </section>
+
+  <!-- ===== 10 AI STUDIO ===== -->
+  <section class="view" id="view-aistudio">
+    <div class="xbar">
+      <span class="xtag">EXPORT ・ AIパラメータ設定</span><span class="xspace"></span>
+      <div class="seg" data-sec="aistudio"><button class="on" data-f="md" onclick="setSeg('aistudio','md')">MD</button><button data-f="txt" onclick="setSeg('aistudio','txt')">TXT</button></div>
+      <button class="btn sm" onclick="copySection('aistudio')">⧉ コピー</button>
+      <button class="btn sm gold" onclick="downloadSection('aistudio')">⬇ ダウンロード</button>
+    </div>
+    <div class="lead"><b>AIスタジオ（パラメータ・コンソール）。</b>生成した台本を流す<b>AIの数値パラメータ</b>を設定し、保存／デフォルト復帰／JSONエクスポートできます。「影響ビジュアライザ」は実際のsoftmax分布を temperature・top_p・top_k で変形させ、<b>何がどう効くかを数学的に検証</b>。さらに<b>A/B/N検証テスト計画</b>と<b>リクエストボディ</b>を生成します。エンジニアがそのまま実機検証に使えます。</div>
+
+    <div class="panel">
+      <div class="savebar">
+        <button class="btn primary sm" onclick="saveAiParams()">💾 保存</button>
+        <button class="btn sm" onclick="resetAiParams()">↺ デフォルトに戻す</button>
+        <button class="btn gold sm" onclick="exportAiParams()">⬇ 設定JSONをエクスポート</button>
+        <span class="saveind" id="ai_saveind">未保存</span>
+      </div>
+      <div class="subnav" id="aisubnav"></div>
+      <div id="aibody"></div>
+    </div>
+  </section>
+
+  <!-- ===== 11 EXPORT ===== -->
+  <section class="view" id="view-export">
+    <div class="xbar">
+      <span class="xtag">EXPORT ・ 完全版</span><span class="xspace"></span>
+      <div class="seg" data-sec="full"><button class="on" data-f="md" onclick="setSeg('full','md')">MD</button><button data-f="txt" onclick="setSeg('full','txt')">TXT</button></div>
+      <button class="btn sm" onclick="copySection('full')">⧉ コピー</button>
+      <button class="btn sm gold" onclick="downloadSection('full')">⬇ ダウンロード</button>
+    </div>
+    <div class="panel">
+      <h2><span class="tag">OUTPUT</span>全タブまとめ（完全版）</h2>
+      <p class="sub">企画・台本・演出規定・理論・チェックリストを1つの制作指示書にまとめます。下のプレビューがそのまま納品物です。</p>
+      <div class="out">
+        <div class="out-bar"><span class="fn" id="outFn">script.md</span></div>
+        <pre class="code" id="outCode"></pre>
+      </div>
+      <div class="note"><b>使い方：</b>このMarkdownをそのまま生成AIや台本ツールに渡せば、固定ルールと問いの階層が明記された再現性の高い台本ドラフトが得られます。</div>
+    </div>
+  </section>
+
+</div>
+
+<div class="foot">
+  <span class="tagline">面白きこともなき世を面白く。またお会いしましょう。</span>
+  <span id="verStamp"></span>
+</div>
+
+<!-- mascot -->
+<div class="mascot" id="mascot">
+  <div class="bubble" id="bubble"></div>
+  <button class="mascot-btn" id="mascotBtn" title="応援メッセージ" aria-label="応援メッセージ">
+    <img src="data:image/jpeg;base64,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" alt="うさぎちゃん">
+    <span class="spark"></span>
+  </button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const VERSION='v3.4';
+const RELEASE='2026-06-24';
+
+/* ============ PRESETS ============ */
+function masterPreset(){return{
+  meta:{programTitle:'「教えない」指導技術 マスタークラス',announcer:'しろうさぎアナウンサー',audienceLevel:'リーダー・指導者（上級）',
+    skillName:'受講生の自律性を引き出す「教えない」指導技術',subtitle:'答えを与えず、自走エンジニアを育てる',
+    metaphor:'指導は「料理」。レシピを渡すのではなく、味見の仕方を一緒に覚える',actionPrompt:'明日、どの「足場」から外し始めますか？を自分の指導で1つ決める',
+    totalLength:'約6分00秒',baseColor:'青',closingLine:'共に強固な心の足場を築いていきましょう。次回のニュースもお楽しみに。ご視聴ありがとうございました。'},
+  rules:defaultRules(),
+  scenes:[
+    {act:'第1幕',time:'00:00-00:15',title:'表紙・挨拶',visual:'青基調のスタジオ背景。中央のアナウンサーへゆっくりズームイン。',comp:'日の丸',pose:'正面',color:'青',level:'—',narr:'こんにちは。しろうさぎアナウンサーです。本日は、良かれと思って答えを教えてしまう指導の『罠』についてお伝えします。'},
+    {act:'第1幕',time:'00:15-00:45',title:'問いかけ：わかったつもりの弊害',visual:'背景に自己評価と成績の乖離グラフを表示。',comp:'三分割法',pose:'正面',color:'青',level:'L1',narr:'一生懸命教えるほど、受講生の成績が伴わない。そんな経験はありませんか？『わかったつもり』と実際の定着度は一致しないのです。'},
+    {act:'第1幕',time:'00:45-01:15',title:'シンキングタイム',visual:'30秒カウントダウン表示。カメラは左右にゆっくりパンニング。',comp:'対称',pose:'正面',color:'青',level:'L1',narr:'最近の指導で、すぐに答えを教えてしまった瞬間はいつですか？[思考プロンプト] 30秒間、振り返ってみてください。[沈黙: 30秒]（BGM：落ち着いたトーン）'},
+    {act:'第2幕',time:'01:15-01:45',title:'核心：Telling is not Teaching',visual:'画面をAlert Red(#FF0000)へスナップズーム。核心メッセージ提示。',comp:'日の丸',pose:'正面（驚き顔）→指示棒',color:'赤',level:'—',narr:'重要な事実をお伝えします。『Telling is not teaching. Testing is teaching.（教えることは、答えを与えることではない）』。これがパラダイムシフトです。'},
+    {act:'第2幕',time:'01:45-02:30',title:'理論解説：テスト効果と認知負荷',visual:'「テスト効果」「認知負荷」の図解を提示。',comp:'三角',pose:'指示棒',color:'赤',level:'L2',narr:'答えを押し付けることは、学習に必要なスキーマ形成を阻害します。問いかけ（Testing）こそが、再読よりも長期記憶保持率を劇的に高めるのです。'},
+    {act:'第3幕',time:'02:30-03:15',title:'構造（家）と統合（ギア）モデル',visual:'家モデルとギアモデルを提示。背景は青へ。',comp:'対称',pose:'指示棒',color:'青',level:'L2',narr:'指導建築モデルは教育の構造を、ギアモデルは4つの理論が統合されて学習者を前進させる駆動力を表しています。'},
+    {act:'第3幕',time:'03:15-04:00',title:'ZPD 解説',visual:'発達の最近接領域（ZPD）の概念図を表示。',comp:'リーディングライン',pose:'指示棒',color:'青',level:'L3',narr:'支援があればできる領域『ZPD』に問いかけを投げることが、自走への最短ルートです。ピーオーシー（PoC）の実務でもこの難易度調整が鍵となります。[沈黙: 30秒]'},
+    {act:'第3幕',time:'04:00-04:45',title:'コードレビュー変換例',visual:'Before/AfterをMarkdownテーブルで提示。',comp:'対角線',pose:'指示棒',color:'青',level:'L3',narr:'具体例を見てみましょう。答えを言うのではなく、問いかけによって本人の自己説明を引き出します。（例：NullPointerException →「このエラーログ、どの行で何が起きていますか？ nullになり得る変数はどれ？」／ N+1問題 →「このループの中で、何回クエリが発行されていますか？」）'},
+    {act:'第4幕',time:'04:45-05:30',title:'足場外しのタイムライン',visual:'足場外し（フェーディング）の図解を提示。',comp:'リーディングライン',pose:'正面',color:'青',level:'L3',narr:'指導は固定ではありません。選択肢提示から、オープンな問い、そして振り返りへと移行する『足場外し』を設計してください。'},
+    {act:'第4幕',time:'05:30-06:00',title:'まとめ：5原則',visual:'まとめの5原則をリストアップ。',comp:'黄金比グリッド',pose:'正面',color:'青',level:'L4',narr:'まとめの5原則です。特に5つ目の『足場外し』は、自走へつなげるための最終目的です。[思考プロンプト] 明日、どの『足場』から外し始めますか？'},
+    {act:'第5幕',time:'06:00-終了',title:'お礼・エンディング',visual:'背景を青基調に固定。次回予告・NEWSロゴ・世界地図を表示しフェードアウト。',comp:'額縁',pose:'手を挙げる',color:'青',level:'—',narr:'共に強固な心の足場を築いていきましょう。次回のニュースもお楽しみに。ご視聴ありがとうございました。'}
+  ]};}
+
+function blankPreset(){return{
+  meta:{programTitle:'うさうさNEWS 特別番組',announcer:'しろうさぎアナウンサー',audienceLevel:'IT未経験・新人（初級）',
+    skillName:'（扱うスキル名を入力）',subtitle:'（ベネフィットを強調したキャッチコピー）',metaphor:'（料理・交通ルールなど日常的な比喩）',
+    actionPrompt:'（視聴後に取ってほしい具体的な一歩）',totalLength:'約4分00秒',baseColor:'青',closingLine:'面白きこともなき世を面白く。またお会いしましょう。'},
+  rules:defaultRules(),
+  scenes:[
+    {act:'フック',time:'00:00-00:20',title:'問題提起',visual:'痛み（スキル不足）を特定する図を提示。',comp:'日の丸',pose:'正面',color:'赤',level:'—',narr:'（受講生の手が止まる「あるある」を提示し、視聴者の意識を喚起）'},
+    {act:'導入',time:'00:20-00:50',title:'自己紹介・テーマ提示',visual:'{{SKILL_NAME}}と{{SUBTITLE}}を明示。',comp:'三分割法',pose:'正面',color:'青',level:'L1',narr:'皆様、こんにちは。しろうさぎアナウンサーです。本日のテーマは…（結論を端的に提示）'},
+    {act:'解説(Why)',time:'00:50-02:00',title:'核心概念',visual:'比喩（METAPHOR）を用いて本質を理解させる。',comp:'三角',pose:'指示棒',color:'赤',level:'L2',narr:'（なぜ重要か。比喩をブリッジに本質を解説）[思考プロンプト] …はなぜだと思いますか？[沈黙: 15秒]'},
+    {act:'解説(How)',time:'02:00-03:10',title:'実践的提案',visual:'解決策への足場かけ。PiP（小窓）固定開始。',comp:'対角線',pose:'指示棒',color:'青',level:'L3',narr:'（具体的なHow。答えを言わず問いかけで自己説明を引き出す）'},
+    {act:'結び',time:'03:10-04:00',title:'行動喚起・エンディング',visual:'核心を再強調し決めゼリフ。',comp:'額縁',pose:'手を挙げる',color:'青',level:'L4',narr:'（ACTION_PROMPTを提示）面白きこともなき世を面白く。またお会いしましょう。'}
+  ]};}
+
+function defaultRules(){return{
+  character:'うさぎの輪郭・耳の形状・縦横比・パーツ配置を公式アセットと完全一致。フラットな二次元日本風アニメテイストを死守。リアルな人間の肌感・複雑な陰影・実写質感の追加を一切禁止。',
+  costume:'紺色のスーツ・赤い蝶ネクタイ・白いワイシャツの3点を絶対条件。デスク上に「マイク」と「にんじん」を定位置に配置。にんじんは解説(How)シーンで概念を指し示す指し棒として使用可。',
+  pip:'解説シーン以降、手を振るしろうさぎ（公式アセット）を画面右下に小窓として固定表示。レイヤー最前面。「常に見守られている」社会的実在感のアンカー。',
+  color:'通常進行は青（安心／挨拶／How）。重要・核心・Why提示時はAlert Red(#FF0000)へスナップズーム。',
+  voice:'落ち着いた女性の声、明瞭で安定したテンポ。標準的な「です・ます」調。「〜ですわ」「〜なさい」「〜ですの」等のキャラ付け語尾は一切禁止。',
+  pron:'「PoC」は必ず「ピーオーシー」と発音させる指示を台本に明記。',
+  forbid:'キャラクターの改変・擬人化・不自然な変形を一切禁止（公式ポーズの切り替えのみで構成）。実在人物の経歴や機材スペックの捏造を厳禁（Zero Hallucination）。'};}
+
+/* ============ STATE ============ */
+let S=masterPreset();
+const POSES=['正面','正面（驚き顔）','正面（驚き顔）→指示棒','指示棒','手を挙げる','原稿を読む（目線下げ）'];
+const COMPS=['日の丸','三分割法','対称','三角','対角線','リーディングライン','黄金螺旋','黄金比グリッド','額縁'];
+const LEVELS=['—','L1','L2','L3','L4'];
+const COLORS=['青','赤'];
+
+/* ============ ENCOURAGEMENT (real quotes only) ============ */
+const QUOTES=[
+  {q:"The best way to predict the future is to invent it.",a:"Alan Kay"},
+  {q:"Talk is cheap. Show me the code.",a:"Linus Torvalds"},
+  {q:"It always seems impossible until it's done.",a:"Nelson Mandela"},
+  {q:"Whether you think you can, or you think you can't — you're right.",a:"Henry Ford"},
+  {q:"Stay hungry. Stay foolish.",a:"Steve Jobs"},
+  {q:"The only way to do great work is to love what you do.",a:"Steve Jobs"},
+  {q:"Believe you can and you're halfway there.",a:"Theodore Roosevelt"},
+  {q:"It does not matter how slowly you go as long as you do not stop.",a:"Confucius"},
+  {q:"A journey of a thousand miles begins with a single step.",a:"Lao Tzu"},
+  {q:"Premature optimization is the root of all evil.",a:"Donald Knuth"},
+  {q:"Make it work, make it right, make it fast.",a:"Kent Beck"},
+  {q:"The future belongs to those who believe in the beauty of their dreams.",a:"Eleanor Roosevelt"},
+  {q:"Programs must be written for people to read.",a:"Harold Abelson"},
+  {q:"Fall seven times, stand up eight.",a:"Japanese proverb"}
+];
+const CHEERS=['今日もいい仕事を！🐰','その調子です✨','ナイス進捗！','深呼吸してこー☕','あなたなら作れます💎','ひとつずつでOK','宇宙一の講師へ🚀','ふわっと前進🌷'];
+let bubbleTimer=null,autoTimer=null,qi=Math.floor(Math.random()*QUOTES.length);
+function showQuote(){
+  const q=QUOTES[qi%QUOTES.length]; qi++;
+  const c=CHEERS[Math.floor(Math.random()*CHEERS.length)];
+  const b=document.getElementById('bubble');
+  b.innerHTML=`<span class="x" onclick="hideQuote()">✕</span><div class="cheer">${esc(c)}</div><div class="q">"${esc(q.q)}"</div><div class="a">— ${esc(q.a)}</div>`;
+  b.classList.add('show');
+  clearTimeout(bubbleTimer); bubbleTimer=setTimeout(hideQuote,9000);
+}
+function hideQuote(){document.getElementById('bubble').classList.remove('show');}
+
+/* ============ TABS ============ */
+document.getElementById('tabs').addEventListener('click',e=>{
+  const b=e.target.closest('.tab'); if(!b)return;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t===b));
+  const v=b.dataset.v;
+  document.querySelectorAll('.view').forEach(x=>x.classList.remove('on'));
+  document.getElementById('view-'+v).classList.add('on');
+  if(v==='export') renderOut();
+  if(v==='consult') renderConsult();
+  if(v==='proposal') renderProposal();
+  if(v==='direction') renderDirection();
+  if(v==='aistudio') renderAiStudio();
+  window.scrollTo({top:0,behavior:'smooth'});
+});
+
+/* ============ FORM BIND ============ */
+function fillForm(){
+  const m=S.meta;
+  setV('m_programTitle',m.programTitle);setV('m_announcer',m.announcer);setV('m_audienceLevel',m.audienceLevel);
+  setV('m_skillName',m.skillName);setV('m_subtitle',m.subtitle);setV('m_metaphor',m.metaphor);
+  setV('m_actionPrompt',m.actionPrompt);setV('m_totalLength',m.totalLength);setV('m_baseColor',m.baseColor);setV('m_closingLine',m.closingLine);
+  const r=S.rules;
+  setV('r_character',r.character);setV('r_costume',r.costume);setV('r_pip',r.pip);setV('r_color',r.color);setV('r_voice',r.voice);setV('r_pron',r.pron);setV('r_forbid',r.forbid);
+}
+function setV(id,v){const el=document.getElementById(id);if(el)el.value=v==null?'':v;}
+function getV(id){const el=document.getElementById(id);return el?el.value:'';}
+function bind(){
+  S.meta.programTitle=getV('m_programTitle');S.meta.announcer=getV('m_announcer');S.meta.audienceLevel=getV('m_audienceLevel');
+  S.meta.skillName=getV('m_skillName');S.meta.subtitle=getV('m_subtitle');S.meta.metaphor=getV('m_metaphor');
+  S.meta.actionPrompt=getV('m_actionPrompt');S.meta.totalLength=getV('m_totalLength');S.meta.baseColor=getV('m_baseColor');S.meta.closingLine=getV('m_closingLine');
+  S.rules.character=getV('r_character');S.rules.costume=getV('r_costume');S.rules.pip=getV('r_pip');S.rules.color=getV('r_color');S.rules.voice=getV('r_voice');S.rules.pron=getV('r_pron');S.rules.forbid=getV('r_forbid');
+  renderCue();
+}
+
+/* ============ SCENE EDITOR ============ */
+function opt(arr,sel){return arr.map(o=>`<option${o===sel?' selected':''}>${esc(o)}</option>`).join('');}
+function renderSceneEditor(){
+  document.getElementById('sceneEditor').innerHTML=S.scenes.map((s,i)=>`
+    <div class="scard">
+      <div class="sc-head"><span class="sc-idx">${i+1}</span><span class="sc-name">${esc(s.act)}｜${esc(s.title||'(無題)')}</span>
+        <span class="sc-actions">
+          <button class="icon-btn" title="上へ" onclick="moveScene(${i},-1)" ${i===0?'disabled':''}>↑</button>
+          <button class="icon-btn" title="下へ" onclick="moveScene(${i},1)" ${i===S.scenes.length-1?'disabled':''}>↓</button>
+          <button class="icon-btn" title="複製" onclick="dupScene(${i})">⧉</button>
+          <button class="icon-btn" title="削除" onclick="delScene(${i})">✕</button>
+        </span></div>
+      <div class="sgrid">
+        <div><label>幕／セグメント</label><input type="text" value="${esc(s.act)}" oninput="setScene(${i},'act',this.value)"></div>
+        <div><label>時間</label><input type="text" value="${esc(s.time)}" oninput="setScene(${i},'time',this.value)"></div>
+        <div><label>配色</label><select onchange="setScene(${i},'color',this.value)">${opt(COLORS,s.color)}</select></div>
+        <div><label>問いの階層</label><select onchange="setScene(${i},'level',this.value)">${opt(LEVELS,s.level)}</select></div>
+        <div class="full"><label>シーンタイトル</label><input type="text" value="${esc(s.title)}" oninput="setScene(${i},'title',this.value)"></div>
+        <div class="full"><label>視覚演出・カメラワーク</label><input type="text" value="${esc(s.visual)}" oninput="setScene(${i},'visual',this.value)"></div>
+        <div><label>構図</label><select onchange="setScene(${i},'comp',this.value)">${opt(COMPS,s.comp)}</select></div>
+        <div class="full" style="grid-column:span 3"><label>ポーズ</label><select onchange="setScene(${i},'pose',this.value)">${opt(POSES,s.pose)}</select></div>
+        <div class="full"><label>ナレーション・音声指示</label><textarea oninput="setScene(${i},'narr',this.value)">${esc(s.narr)}</textarea></div>
+      </div></div>`).join('');
+}
+function setScene(i,k,v){S.scenes[i][k]=v;renderCue();if(k==='act'||k==='title'){const n=document.querySelectorAll('.sc-name')[i];if(n)n.textContent=`${S.scenes[i].act}｜${S.scenes[i].title||'(無題)'}`;}}
+function moveScene(i,d){const j=i+d;if(j<0||j>=S.scenes.length)return;const t=S.scenes[i];S.scenes[i]=S.scenes[j];S.scenes[j]=t;renderSceneEditor();renderCue();}
+function dupScene(i){const c=JSON.parse(JSON.stringify(S.scenes[i]));c.title=c.title+'（複製）';S.scenes.splice(i+1,0,c);renderSceneEditor();renderCue();}
+function delScene(i){if(S.scenes.length<=1){toast('最後の1シーンは削除できません');return;}S.scenes.splice(i,1);renderSceneEditor();renderCue();}
+function addScene(){S.scenes.push({act:'新セグメント',time:'00:00-00:00',title:'新しいシーン',visual:'（視覚演出を記入）',comp:'三分割法',pose:'正面',color:S.meta.baseColor||'青',level:'L1',narr:'（ナレーションを記入）[思考プロンプト] …？[沈黙: 15秒]'});renderSceneEditor();renderCue();toast('シーンを追加しました');}
+
+/* ============ CUE SHEET ============ */
+function renderCue(){
+  document.getElementById('sheetTitle').innerHTML=esc(S.meta.programTitle)+'<small>RUNDOWN ・ '+esc(S.meta.announcer)+'</small>';
+  document.getElementById('sheetClock').textContent='TRT '+esc(S.meta.totalLength||'--:--');
+  document.getElementById('cueChips').innerHTML=[
+    `<span class="chip">対象 <b>${esc(short(S.meta.audienceLevel))}</b></span>`,
+    `<span class="chip">基調 <b>${esc(S.meta.baseColor)}</b></span>`,
+    `<span class="chip">SCENE <b>${S.scenes.length}</b></span>`].join('');
+  document.getElementById('runlen').textContent=S.meta.totalLength||'00:00';
+  const list=document.getElementById('cueList');
+  if(!S.scenes.length){list.innerHTML='<div class="empty-sheet">シーンがありません。「シーン編集」で追加してください。</div>';return;}
+  list.innerHTML=S.scenes.map((s,i)=>{
+    const cc=s.color==='赤'?'red':'blue';
+    const lv=(s.level&&s.level!=='—')?`<span class="flag lv">${esc(s.level)}</span>`:'';
+    return `<div class="cue-row"><div class="cue-tc"><b>${esc(num(i+1))}</b>${esc(s.time)}</div>
+      <div class="cue-body"><div class="cue-title">${esc(s.act)}｜${esc(s.title)}</div>
+      <div class="cue-flags"><span class="flag ${cc}">配色 ${esc(s.color)}</span><span class="flag pose">${esc(s.pose)}</span><span class="flag comp">構図 ${esc(s.comp)}</span>${lv}</div>
+      <div class="cue-narr">${esc(s.narr)}</div><div class="cue-visual"><b>映像：</b>${esc(s.visual)}</div></div></div>`;
+  }).join('');
+}
+function num(n){return('0'+n).slice(-2);}
+function short(t){return(t||'').split('（')[0];}
+
+/* ============ SECTION BUILDERS ============ */
+function bodyBrief(){const m=S.meta;return[
+  '## プロジェクト基本要件','',
+  `- **番組タイトル**：『${m.programTitle}』`,
+  `- **出演者**：${m.announcer}（呼称を統一）`,
+  `- **対象者レベル**：${m.audienceLevel}`,
+  `- **総尺（目安）**：${m.totalLength}`,
+  `- **基調カラー**：${m.baseColor}（重要・核心・Why提示時は Alert Red #FF0000）`,
+  `- **決めゼリフ**：「${m.closingLine}」`,'',
+  '## 可変パラメータ','',
+  '| 変数 | 内容 |','| :--- | :--- |',
+  `| {{SKILL_NAME}} | ${m.skillName} |`,
+  `| {{SUBTITLE}} | ${m.subtitle} |`,
+  `| {{METAPHOR}} | ${m.metaphor} |`,
+  `| {{ACTION_PROMPT}} | ${m.actionPrompt} |`,'',
+  '> METAPHORガードレール：対象者の既知概念（料理・交通ルール等）に紐づけること。技術用語を技術用語で例えるのは禁止（認知負荷の不要な増大）。'
+];}
+function bodyScript(){const L=['## 台本構成（キューシート）','',
+  '| # | 時間 | 幕／セグメント・タイトル | 配色 | ポーズ | 構図 | 問い | ナレーション・音声指示 |',
+  '| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |'];
+  S.scenes.forEach((s,i)=>L.push(`| ${num(i+1)} | ${s.time} | ${s.act}｜${s.title} | ${s.color} | ${s.pose} | ${s.comp} | ${s.level} | ${oneLine(s.narr)} |`));
+  L.push('','### 各シーン詳細','');
+  S.scenes.forEach((s,i)=>{
+    L.push(`#### ${num(i+1)}. ${s.act}｜${s.title}（${s.time}）`);
+    L.push(`- **映像・カメラワーク**：${s.visual}`);
+    L.push(`- **配色**：${s.color}　**ポーズ**：${s.pose}　**構図**：${s.comp}　**問いの階層**：${s.level}`);
+    L.push('- **ナレーション**：',`  > ${s.narr}`,'');
+  });
+  return L;
+}
+function bodyRules(){const r=S.rules;return[
+  '## 演出・固定ルール（絶対拘束事項）','',
+  `- **キャラクター固定**：${r.character}`,
+  `- **衣装・小道具**：${r.costume}`,
+  `- **PiP（小窓）固定**：${r.pip}`,
+  `- **配色設計**：${r.color}`,
+  `- **音声・口調**：${r.voice}`,
+  `- **発音指定**：${r.pron}`,
+  `- **禁止事項**：${r.forbid}`
+];}
+function bodyTheory(){return[
+  '## 教育心理学的裏付け（嘘つかない原則：出典は原典のみ）','',
+  '- **生成効果／検索練習効果**（Slamecka & Graf 1978 ／ Roediger & Karpicke 2006）：答えの提示を禁じ学習者に出力させ、定着率を約30〜40%向上。',
+  '- **自己効力感**（Bandura 1997）：「自力で解けた」成功体験で内発的動機を醸成。初心者へのL3以上連発は厳禁。',
+  '- **効果量 d**（Hattie 2009）：ヒンジポイント d=0.4／フィードバック d=0.73 を目標。',
+  '- **ZPD と Wait Time**（Vygotsky ／ Rowe 1974）：支援があればできる領域に問いを投げ、沈黙を確保。L1/L2＝7〜15秒、L3/L4＝30秒。',
+  '- **段階化／撤退**（Bloom ／ Dweck 成長マインドセット）：低次→高次へ段階化、習熟に応じて支援を減らすFading。','',
+  '### 問いの4階層 × 構図マッピング','',
+  '| 階層 | 名称・目的 | 対応構図 | Wait Time |','| :--- | :--- | :--- | :--- |',
+  '| L1 | 確認の問い／現在地把握 | 三分割法・日の丸・対称・三角 | 7〜15秒 |',
+  '| L2 | 掘り下げの問い／根拠の可視化 | 三分割法・対称 | 7〜15秒 |',
+  '| L3 | 仮説の問い／推論・転移 | 対角線・リーディングライン | 30秒 |',
+  '| L4 | 統合の問い／メタ認知・定着 | 黄金螺旋・黄金比グリッド・額縁 | 30秒 |','',
+  '### 教育的介入の対照表（推奨 / NG）','',
+  '| 項目 | 推奨（成功） | NG（失敗） |','| :--- | :--- | :--- |',
+  '| 問いの形式 | 「どう思いますか？」と好奇心を刺激 | 「〜ですよね？」という誘導尋問 |',
+  '| 沈黙の実装 | [沈黙: 15秒] タグの強制挿入 | 問いの直後にすぐ解説 |',
+  '| ヒント提供 | 見落とした「証拠（エラー等）」への着目 | 答えが透ける過剰な助言 |',
+  '| 受容 | 誤答も「一つの視点」として受け止める | 期待する正解以外を即否定 |','',
+  '### 台本実装の強制タグ',
+  '- `[思考プロンプト]`：視聴者に一時停止・思考を促す呼びかけ。',
+  '- `[沈黙: 15秒]`（L3/L4は30秒）：物理的な「間」の確保。答えを言わない指導術の実装核。','',
+  '### 構図カタログ（9つの型）',
+  '- 安定／確認（L1・L2）：三分割法・日の丸・対称・三角',
+  '- 動的／思考促進（L3・L4）：対角線・リーディングライン・黄金螺旋・黄金比グリッド・額縁',
+  '- 引き算の原則：背景ノイズを排除。NG回避：「なんでも真ん中」「水平垂直のズレ」を厳禁。'
+];}
+const CHECKLIST=['構成順序が欠番なく論理的に並んでいるか','PiP（小窓）がレイヤー最前面に固定されているか','核心シーンで Alert Red(#FF0000) とスナップズームが行われているか','うさぎの輪郭・耳・縦横比が公式アセットと一致しているか','衣装が「紺スーツ・赤蝶ネクタイ・白シャツ」で固定されているか','デスクに「マイク」と「にんじん」が配置されているか','AIによる擬人化・リアルな肌感・陰影の追加が排除されているか','「PoC」の発音が「ピーオーシー」になっているか','「〜ですわ」等のキャラ付け語尾が排除され、です・ます調が維持されているか','各問いの後に [沈黙] タグ（L1/L2:7〜15秒・L3/L4:30秒）が入っているか','METAPHORが対象者の既知概念に紐づいているか','エンディングが決めゼリフで終わっているか'];
+function bodyChecklist(){const L=['## 品質管理チェックリスト',''];
+  CHECKLIST.forEach(c=>L.push(`- [ ] ${c}`));
+  return L;}
+function bodyHowto(){return[
+  '## ミッション・ブリーフィング（使い方）','',
+  '「うさうさNEWS（しろうさぎアナウンサー）」のニュース番組形式 教育動画の制作指示書ジェネレーターです。書き換えた内容は台本・キューシート・書き出しに連動します。','',
+  '### 手順',
+  '1. **企画**タブで「完全再現」か「空のひな形」を読み込む。',
+  '2. 番組タイトル・対象者レベル・可変4変数（SKILL_NAME / SUBTITLE / METAPHOR / ACTION_PROMPT）を入力。',
+  '3. **台本**タブで各シーンの時間・配色・ポーズ・構図・問いの階層（L1〜L4）・ナレーションを編集（並べ替え・複製・削除可）。',
+  '4. **演出規定**で固定ルール、**勉強会**で科学的根拠を確認。',
+  '5. 各タブ上部の EXPORTバーで MD / TXT をコピーまたはダウンロード。**書き出し**タブは全タブの完全版。','',
+  '### 嘘つかない原則',
+  '出典は原典記載のもの（Slamecka & Graf 1978／Roediger & Karpicke 2006／Bandura 1997／Hattie 2009／Rowe 1974／Vygotsky／Dweck／Bloom）のみ。右下のうさぎちゃんの名言も実在の著名な言葉のみを使用。'
+];}
+
+/* ============ AI STUDIO (パラメータ・コンソール) ============ */
+const PARAM_META=[
+  {key:'temperature',label:'temperature',min:0,max:2,step:0.05,def:1.0,eff:'出力のランダム性。低い＝決定的・再現性が高い／高い＝多様・創造的。0で最尤（貪欲）に近づく。',providers:'Anthropic / OpenAI（OpenAIは0–2、Anthropicは0–1目安）'},
+  {key:'top_p',label:'top_p (nucleus)',min:0,max:1,step:0.01,def:1.0,eff:'累積確率pに入る語彙だけから選ぶ。小さいほど候補を絞る。temperatureとの併用は片方推奨。',providers:'Anthropic / OpenAI'},
+  {key:'top_k',label:'top_k',min:0,max:200,step:1,def:0,eff:'上位k語彙だけから選ぶ（0=無効）。小さいほど決定的。',providers:'Anthropic（OpenAI Chatは非対応）'},
+  {key:'max_tokens',label:'max_tokens',min:1,max:8192,step:1,def:1024,eff:'生成の最大トークン数（長さの上限）。品質ではなく長さの天井。',providers:'共通（多くは必須）'},
+  {key:'frequency_penalty',label:'frequency_penalty',min:-2,max:2,step:0.05,def:0,eff:'頻出トークンを抑制し繰り返しを減らす。',providers:'OpenAI Chat（Anthropicは非対応）'},
+  {key:'presence_penalty',label:'presence_penalty',min:-2,max:2,step:0.05,def:0,eff:'既出トークンの再登場を抑え新規話題を促す。',providers:'OpenAI Chat（Anthropicは非対応）'}
+];
+const AISECS=[['console','コンソール'],['viz','影響ビジュアライザ'],['test','検証テスト設計'],['request','リクエスト出力']];
+const VIZ_TOKENS=['マット','床','椅子','ベッド','箱','膝','屋根','日向','車','雲'];
+const VIZ_LOGITS=[3.4,2.8,2.3,1.9,1.4,1.0,0.6,0.1,-0.4,-1.0];
+const SWEEPS={temperature:[0.0,0.3,0.7,1.0],top_p:[0.5,0.8,0.95,1.0],top_k:[1,5,20,0],max_tokens:[128,512,1024,2048],frequency_penalty:[0,0.5,1.0,1.5],presence_penalty:[0,0.5,1.0,1.5]};
+const OBSERVE={temperature:'出力の多様性・再現性（同一プロンプトをN回実行し差を見る）',top_p:'候補語彙の広がり・逸脱の有無',top_k:'決定性・上位への集中度',max_tokens:'出力長の上限挙動・途中切れの有無',frequency_penalty:'同一表現の繰り返し頻度',presence_penalty:'新規話題への展開度'};
+
+let aiSec=0, aiTestTarget='temperature';
+let aiParams=defaultAiParams();
+function defaultAiParams(){return{model:'claude-opus-4-8',temperature:1.0,top_p:1.0,top_k:0,max_tokens:1024,frequency_penalty:0,presence_penalty:0,stop:'',system:'あなたはしろうさぎアナウンサーです。答えを与えず、問いかけで自己説明を引き出します。出典はソースのみ（嘘つかない原則）。',prompt:'（ここに生成した台本MDやプロンプトを貼る）'};}
+
+function clampNum(key,val){const m=PARAM_META.find(x=>x.key===key);let n=parseFloat(val);if(isNaN(n))n=m?m.def:0;if(m){n=Math.min(m.max,Math.max(m.min,n));if(m.step>=1)n=Math.round(n);}return n;}
+function onParam(key,val){aiParams[key]=clampNum(key,val);const r=document.getElementById('ai_'+key+'_r'),n=document.getElementById('ai_'+key+'_n');if(r)r.value=aiParams[key];if(n)n.value=aiParams[key];updateAiDerived();}
+function onText(key,val){aiParams[key]=val;updateAiDerived();}
+function updateAiDerived(){const mv=document.getElementById('ai_miniviz');if(mv)mv.innerHTML=vizHtml(true);const jb=document.getElementById('ai_json');if(jb&&document.activeElement!==jb)jb.value=aiSettingsJson();}
+
+function computeDist(temp,topp,topk){
+  const T=Math.max(+temp,1e-6);
+  const logits=VIZ_LOGITS.map(l=>l/T);
+  const mx=Math.max.apply(null,logits);
+  const exps=logits.map(l=>Math.exp(l-mx));
+  const sum=exps.reduce((a,b)=>a+b,0);
+  let probs=exps.map(e=>e/sum);
+  const idx=probs.map((p,i)=>[p,i]).sort((a,b)=>b[0]-a[0]);
+  let keep=new Set(idx.map(x=>x[1]));
+  if(+topk>0)keep=new Set(idx.slice(0,+topk).map(x=>x[1]));
+  if(+topp<1){let cum=0;const nuc=new Set();for(const pr of idx){if(!keep.has(pr[1]))continue;nuc.add(pr[1]);cum+=probs[pr[1]];if(cum>=+topp)break;}keep=nuc;}
+  const masked=probs.map((p,i)=>keep.has(i)?p:0);
+  const s2=masked.reduce((a,b)=>a+b,0)||1;
+  return{final:masked.map(p=>p/s2),kept:keep};
+}
+function vizHtml(mini){
+  const d=computeDist(aiParams.temperature,aiParams.top_p,aiParams.top_k||0);
+  const max=Math.max.apply(null,d.final.concat([1e-9]));
+  const rows=VIZ_TOKENS.map((t,i)=>{const p=d.final[i];const cut=!d.kept.has(i)||p<=0;const w=cut?0:(p/max*100);
+    return '<div class="vizbar-row'+(cut?' cut':'')+'"><span class="tok">'+esc(t)+'</span><div class="vizbar-track"><div class="vizbar-fill" style="width:'+w.toFixed(1)+'%"></div></div><span class="pct">'+(p*100).toFixed(p<0.001?2:1)+'%</span></div>';}).join('');
+  if(mini)return rows;
+  const kn=d.final.filter(p=>p>1e-6).length;
+  const ent=-d.final.filter(p=>p>0).reduce((a,p)=>a+p*Math.log2(p),0);
+  return rows+'<div class="vizmetrics"><span>実効候補数 <b>'+kn+'</b> / '+VIZ_TOKENS.length+'</span><span>エントロピー <b>'+ent.toFixed(2)+'</b> bit</span><span>temp <b>'+(+aiParams.temperature).toFixed(2)+'</b></span><span>top_p <b>'+(+aiParams.top_p).toFixed(2)+'</b></span><span>top_k <b>'+(+aiParams.top_k||0)+'</b></span></div>';
+}
+
+function renderAiConsole(){
+  const rows=PARAM_META.map(m=>{const v=aiParams[m.key];
+    return '<div class="prow"><div class="ptop"><span class="pname">'+m.label+'</span><span class="pprov">'+esc(m.providers)+'</span></div>'+
+      '<div class="pctl"><input type="range" min="'+m.min+'" max="'+m.max+'" step="'+m.step+'" value="'+v+'" id="ai_'+m.key+'_r" oninput="onParam(\''+m.key+'\',this.value)">'+
+      '<input type="number" class="pnum" min="'+m.min+'" max="'+m.max+'" step="'+m.step+'" value="'+v+'" id="ai_'+m.key+'_n" oninput="onParam(\''+m.key+'\',this.value)"></div>'+
+      '<div class="peff">'+esc(m.eff)+'</div></div>';
+  }).join('');
+  return '<div class="board"><div class="board-top"><div class="bt">🛰 パラメータ・コンソール<small>SAMPLING CONTROL</small></div><div class="coord">LIVE TUNING</div></div><div class="board-body">'+
+    '<div class="grid"><div class="field"><label class="lab">model</label><input type="text" id="ai_model" value="'+esc(aiParams.model)+'" oninput="onText(\'model\',this.value)"></div>'+
+    '<div class="field"><label class="lab">stop sequences（カンマ区切り）</label><input type="text" id="ai_stop" value="'+esc(aiParams.stop)+'" oninput="onText(\'stop\',this.value)"></div></div>'+
+    rows+
+    '<div class="field full" style="margin-top:10px"><label class="lab">system プロンプト</label><textarea id="ai_system" rows="3" oninput="onText(\'system\',this.value)">'+esc(aiParams.system)+'</textarea></div>'+
+    '<div class="field full"><label class="lab">user プロンプト（生成した台本MD等）</label><textarea id="ai_prompt" rows="3" oninput="onText(\'prompt\',this.value)">'+esc(aiParams.prompt)+'</textarea></div>'+
+    '<h4 style="margin:16px 0 6px;font-size:12.5px;color:var(--emerald-deep)">いま何がどう効いているか（ライブ・softmax分布）</h4>'+
+    '<div id="ai_miniviz" class="vizwrap"></div>'+
+    '<p class="qhint" style="margin-top:8px">temperature・top_p・top_k を動かすと、上の確率分布がその場で変形します（これがサンプリングの「何がどう効くか」）。固定ロジットによるデモで、実際のモデル出力ではありません。</p>'+
+    '<h4 style="margin:16px 0 6px;font-size:12.5px;color:var(--emerald-deep)">設定JSON（編集して「適用」で反映／そのままエクスポート）</h4>'+
+    '<textarea id="ai_json" rows="9" style="font-family:var(--mono);font-size:11.5px;background:#fff"></textarea>'+
+    '<div class="addbar"><button class="btn sm" onclick="applyAiJson()">↻ JSONを適用</button></div>'+
+    '</div></div>';
+}
+function renderAiVizSection(){
+  return '<div class="board"><div class="board-top"><div class="bt">📊 影響ビジュアライザ<small>SAMPLING MECHANICS</small></div><div class="coord">REAL MATH</div></div><div class="board-body">'+
+    '<p style="margin:0 0 12px;color:var(--ink);font-size:13px">同じロジット（固定デモ値）に対し、<b>temperature → top_k → top_p</b> の順で適用した結果の確率分布です。コンソールで値を変えてから戻ると反映されます。実効候補数・エントロピーで「絞り込み度」を定量化できます。</p>'+
+    '<div class="vizwrap">'+vizHtml(false)+'</div>'+
+    '<div class="cards" style="margin-top:14px"><div class="card"><h3>temperature</h3><p>1/Tでロジットをスケール。T小→分布が鋭くなり決定的、T大→平坦で多様。</p></div>'+
+    '<div class="card"><h3>top_k / top_p</h3><p>top_kは上位k個に、top_pは累積pまでに候補を限定し再正規化。低いほど逸脱を抑える。</p></div></div>'+
+    '<div class="docnote">注：frequency_penalty / presence_penalty は<b>系列全体の繰り返し</b>に作用するため、この1ステップ分布には現れません（別軸の指標）。実際の挙動はプロバイダ公式ドキュメントで確認してください。</div>'+
+    '</div></div>';
+}
+function renderAiTestSection(){
+  const sweep=SWEEPS[aiTestTarget]||[];
+  let rows='';
+  sweep.forEach((v,i)=>{rows+='<tr><td>V'+(i+1)+'</td><td><b>'+aiTestTarget+' = '+v+'</b></td><td>他は現在値で固定</td><td>'+esc(OBSERVE[aiTestTarget])+'</td></tr>';});
+  const opts=Object.keys(SWEEPS).map(k=>'<option'+(k===aiTestTarget?' selected':'')+'>'+k+'</option>').join('');
+  const variants=sweep.map((v,i)=>{const o={};o[aiTestTarget]=v;return 'V'+(i+1)+'（'+aiTestTarget+'='+v+'）:\n'+aiRequestBody(o);}).join('\n\n');
+  return '<div class="board"><div class="board-top"><div class="bt">🧪 検証テスト設計<small>WHAT-AFFECTS-WHAT</small></div><div class="coord">A/B/N</div></div><div class="board-body">'+
+    '<div class="field" style="max-width:280px;margin-bottom:12px"><label class="lab">検証対象パラメータ</label><select onchange="setTestTarget(this.value)">'+opts+'</select></div>'+
+    '<p style="margin:0 0 10px;color:var(--ink);font-size:12.5px">同一プロンプトで対象だけをスイープし、他を固定して比較します（推奨：各 <b>N=5回</b> 実行して差を観察）。</p>'+
+    '<table class="kv"><tr><th>variant</th><th>変更</th><th>固定</th><th>観察ポイント</th></tr>'+rows+'</table>'+
+    '<h4 style="margin:14px 0 6px;font-size:12.5px;color:var(--emerald-deep)">各 variant のリクエストボディ</h4>'+
+    '<pre class="code" style="max-height:40vh">'+esc(variants)+'</pre>'+
+    '<div class="docnote">合格基準の例：temperature検証なら「T=0で複数回の出力がほぼ一致」「T=1で語彙の多様性が増える」を確認。差が観測できれば、そのパラメータが効いている証拠になります。</div>'+
+    '</div></div>';
+}
+function renderAiRequestSection(){
+  const body=aiRequestBody();
+  const curl='curl https://api.anthropic.com/v1/messages \\\n  -H "x-api-key: $ANTHROPIC_API_KEY" \\\n  -H "anthropic-version: 2023-06-01" \\\n  -H "content-type: application/json" \\\n  -d \''+body.replace(/\n/g,'').replace(/\s{2,}/g,' ')+'\'';
+  const hasPen=(+aiParams.frequency_penalty!==0||+aiParams.presence_penalty!==0);
+  return '<div class="board"><div class="board-top"><div class="bt">📡 リクエスト出力<small>MESSAGES API</small></div><div class="coord">ANTHROPIC形式</div></div><div class="board-body">'+
+    '<h4 style="margin:0 0 6px;font-size:12.5px;color:var(--emerald-deep)">リクエストボディ（Anthropic Messages 形式・テンプレート）</h4>'+
+    '<pre class="code" id="ai_reqbody" style="max-height:40vh">'+esc(body)+'</pre>'+
+    '<div class="addbar"><button class="btn primary sm" onclick="copyText(aiRequestBody(),\'md\')">📋 ボディをコピー</button></div>'+
+    '<h4 style="margin:14px 0 6px;font-size:12.5px;color:var(--emerald-deep)">curl 例</h4>'+
+    '<pre class="code" style="max-height:30vh">'+esc(curl)+'</pre>'+
+    (hasPen?'<div class="docnote">⚠ frequency_penalty / presence_penalty は Anthropic Messages では未対応のため上のボディに含めていません。OpenAI Chat Completions（messages＋これらのフィールド）で利用してください。</div>':'')+
+    '<div class="docnote">モデル名・パラメータの対応範囲はプロバイダ公式ドキュメントで最新を確認してください（本テンプレートは構造の雛形です）。</div>'+
+    '</div></div>';
+}
+
+function aiRequestBody(overrides){
+  const a=Object.assign({},aiParams,overrides||{});
+  const body={model:a.model,max_tokens:Number(a.max_tokens),temperature:Number(a.temperature)};
+  if(Number(a.top_p)<1)body.top_p=Number(a.top_p);
+  if(Number(a.top_k)>0)body.top_k=Number(a.top_k);
+  if(a.stop&&String(a.stop).trim())body.stop_sequences=String(a.stop).split(',').map(s=>s.trim()).filter(Boolean);
+  if(a.system&&String(a.system).trim())body.system=a.system;
+  body.messages=[{role:'user',content:a.prompt}];
+  return JSON.stringify(body,null,2);
+}
+function aiSettingsJson(){return JSON.stringify(aiParams,null,2);}
+function applyAiJson(){const t=document.getElementById('ai_json');if(!t)return;try{const o=JSON.parse(t.value);PARAM_META.forEach(m=>{if(o[m.key]!==undefined)aiParams[m.key]=clampNum(m.key,o[m.key]);});['model','stop','system','prompt'].forEach(k=>{if(o[k]!==undefined)aiParams[k]=o[k];});renderAiStudio();toast('JSONを適用しました');}catch(e){toast('JSONの形式が不正です');}}
+
+function setAiSec(i){aiSec=i;renderAiStudio();}
+function setTestTarget(v){aiTestTarget=v;renderAiStudio();}
+function renderAiStudio(){
+  const nav=document.getElementById('aisubnav');
+  if(nav)nav.innerHTML=AISECS.map((s,i)=>'<button class="subpill '+(i===aiSec?'on':'')+'" onclick="setAiSec('+i+')">'+esc(s[1])+'</button>').join('');
+  const body=document.getElementById('aibody');if(!body)return;
+  const sec=AISECS[aiSec][0];
+  if(sec==='console'){body.innerHTML=renderAiConsole();updateAiDerived();}
+  else if(sec==='viz')body.innerHTML=renderAiVizSection();
+  else if(sec==='test')body.innerHTML=renderAiTestSection();
+  else body.innerHTML=renderAiRequestSection();
+}
+
+function saveAiParams(){try{window.localStorage.setItem('usausa_ai_params',JSON.stringify(aiParams));setSaveInd('保存済み（この端末のブラウザ）');toast('パラメータを保存しました');}catch(e){setSaveInd('ブラウザ保存不可：エクスポートをご利用ください');toast('ブラウザ保存に失敗。エクスポートで保存してください');}}
+function loadAiParams(){try{const s=window.localStorage.getItem('usausa_ai_params');if(s){const o=JSON.parse(s);Object.assign(aiParams,o);setSaveInd('保存済み設定を読込みました');}}catch(e){}}
+function resetAiParams(){aiParams=defaultAiParams();renderAiStudio();setSaveInd('デフォルトに戻しました');toast('デフォルトに戻しました');}
+function exportAiParams(){downloadText(aiSettingsJson(),'うさうさAIパラメータ設定.json','txt');setSaveInd('JSONをエクスポートしました');}
+function setSaveInd(t){const e=document.getElementById('ai_saveind');if(e)e.textContent=t;}
+
+function bodyAi(){
+  const a=aiParams;
+  const L=['## 1. 現在のパラメータ','','| パラメータ | 値 | 対応プロバイダ |','| :-- | :-- | :-- |',
+    '| model | '+a.model+' | — |'];
+  PARAM_META.forEach(m=>L.push('| '+m.label+' | '+a[m.key]+' | '+m.providers+' |'));
+  L.push('| stop_sequences | '+(a.stop||'（なし）')+' | 共通 |','',
+    '## 2. 「何がどう効くか」リファレンス','');
+  PARAM_META.forEach(m=>L.push('- **'+m.label+'**：'+m.eff+'（'+m.providers+'）'));
+  L.push('','## 3. 影響メカニズム（サンプリング）','',
+    '- temperature：1/Tでロジットをスケール。T小→分布が鋭く決定的、T大→平坦で多様。',
+    '- top_k：上位k語彙に限定（0=無効）。top_p：累積確率pまでに限定（nucleus）。',
+    '- 適用順：temperature → top_k → top_p → 再正規化。',
+    '- frequency_penalty / presence_penalty：系列全体の繰り返し・新規性に作用（1ステップ分布には現れない）。','',
+    '## 4. 検証テスト設計（'+aiTestTarget+' スイープ）','',
+    '同一プロンプトで対象だけをスイープし他を固定。推奨 N=5回。','',
+    '| variant | 変更 | 観察ポイント |','| :-- | :-- | :-- |');
+  (SWEEPS[aiTestTarget]||[]).forEach((v,i)=>L.push('| V'+(i+1)+' | '+aiTestTarget+' = '+v+' | '+OBSERVE[aiTestTarget]+' |'));
+  L.push('','## 5. リクエストボディ（Anthropic Messages 形式・テンプレート）','','```json',aiRequestBody(),'```','',
+    '> モデル名・パラメータの対応範囲はプロバイダ公式ドキュメントで最新を確認してください。frequency/presence penalty は OpenAI Chat 系のフィールドです。');
+  return L;
+}
+function aiStudioDoc(){
+  return ['# AIパラメータ設定書 ／ うさうさNEWS ブリッジ '+VERSION+'（'+RELEASE+'）','',
+    '> 生成した台本をAIに流す際のサンプリング設定と、その効果検証の設計。','','---','',
+    ...bodyAi()].concat(docFooter()).join('\n');
+}
+
+/* ============ DIRECTION (ディレクション設計書) ============ */
+let direction={director:'',period:'',team:''};
+let dSec=0;
+const DSECS=[['requirements','要件定義'],['design','詳細設計'],['impl','実装仕様'],['wbs','WBS'],['notebooklm','NotebookLM運用']];
+
+function bindDirection(){direction.director=getV('d_director');direction.period=getV('d_period');direction.team=getV('d_team');}
+
+function wbsData(){return[
+  {id:'1',phase:'企画',tasks:[{n:'企画書作成（概要・ねらい・根拠）',d:'企画書(MD)'},{n:'要件定義（スコープ・受け入れ基準）',d:'要件定義書'},{n:'企画レビュー・承認',d:'承認記録'}]},
+  {id:'2',phase:'設計',tasks:[{n:'構成設計（幕・シーン割り）',d:'キューシート'},{n:'シーン台本・ナレーション',d:'台本(MD)'},{n:'演出・固定ルール確定',d:'演出規定'},{n:'問いの階層×構図の割付',d:'設計表'}]},
+  {id:'3',phase:'素材準備',tasks:[{n:'査読論文収集（NotebookLM Discover / Deep Research）',d:'出典リスト'},{n:'図版・キャラアセット準備（公式ポーズ）',d:'アセット一式'},{n:'根拠の出典検証（どのソースのどこ?）',d:'検証ログ'}]},
+  {id:'4',phase:'制作',tasks:[{n:'AI台本生成（[思考プロンプト]/[沈黙]タグ）',d:'生成台本'},{n:'スライド・構図作成（引き算の原則）',d:'スライド'},{n:'ナレーション収録（です・ます／PoC=ピーオーシー）',d:'音声'},{n:'編集・PiP合成・配色演出',d:'動画(初稿)'}]},
+  {id:'5',phase:'レビュー',tasks:[{n:'ZPD検証（問いの難易度）',d:'レビュー記録'},{n:'UDLチェック（提示の多様性）',d:'チェック記録'},{n:'出典・嘘つかない原則の確認',d:'検証記録'},{n:'品質チェックリスト通過',d:'チェックリスト'}]},
+  {id:'6',phase:'公開・運用',tasks:[{n:'書き出し（MD/TXT/動画）',d:'最終成果物'},{n:'配布（Qiita / PDF / 限定公開）',d:'公開物'},{n:'KPI計測・振り返り',d:'効果測定レポート'}]}
+];}
+
+function buildNbCustomInstructions(){const m=S.meta;return[
+  '【役割】あなたは「しろうさぎアナウンサー」。落ち着いた女性の声、です・ます調。',
+  '【番組】『'+m.programTitle+'』／対象：'+m.audienceLevel,
+  '【方針】',
+  '- 答えを与えず、ソクラテス式の問い（L1確認→L2根拠→L3仮説→L4統合）で引き出す。各問いの後に[沈黙: 15秒]（L3/L4は30秒）。',
+  '- 出典はアップロードしたソースのみ。記憶での補完・捏造を禁止（嘘つかない原則）。回答には出典を付す。',
+  '- 固定ルール：キャラ改変/擬人化を禁止。衣装は紺スーツ・赤蝶ネクタイ・白シャツ。配色は青基調、核心で赤(#FF0000)。「PoC」は「ピーオーシー」。',
+  '【出力形式】番組台本（時間／配色／ポーズ／構図／問いの階層／ナレーション）をMarkdownで。誘導尋問・過剰な助言は禁止。'
+].join('\n');}
+
+function bodyRequirements(){const p=proposal,m=S.meta;
+  const L=['## A. 要件定義書','',
+    '### A-1. 背景・目的',
+    '- 背景（解決する課題）：'+(p.problem||'—'),
+    '- 目的（学習目標）：'+(p.goal||m.skillName||'—'),
+    '- 期待する行動変容：'+(p.behavior||'—'),'',
+    '### A-2. スコープ',
+    '- 対象成果物：教育動画『'+m.programTitle+'』（'+(m.totalLength||p.length||'—')+'）',
+    '- 形式：'+(p.format||'ニュース番組形式の解説動画'),
+    '- 含む：企画→設計→台本→演出→書き出し（本ツールで完結）',
+    '- 含まない：実写撮影・楽曲の新規作曲 等（別途手配）','',
+    '### A-3. 対象・前提',
+    '- 対象視聴者：'+(p.audience||m.audienceLevel),
+    '- 認知レベル（Bloom）：'+(p.bloom||'理解・応用'),'',
+    '### A-4. 機能要件',
+    '- 構成案の各章／フェーズを漏れなくカバーする',
+    '- ソクラテス式の問い（L1〜L4）を設計し、[思考プロンプト]・[沈黙]タグを台本に含む',
+    '- 演出固定ルール（キャラ・衣装・PiP・配色・発音）を遵守する',
+    '- 出典を明示し、原典のみを参照する（嘘つかない原則）','',
+    '### A-5. 非機能要件',
+    '- 1本あたり6分以内を目安（Guo, Kim & Rubin 2014）',
+    '- 認知負荷の最適化：1スライド3情報・引き算の原則（Sweller / Mayer）',
+    '- UDL：視覚・聴覚・テキストの多様な提示',
+    '- 配布物（指示書）は単一ファイル・オフラインで再現可能','',
+    '### A-6. 制約',
+    '- キャラクターの改変・擬人化・実写化を禁止（公式ポーズのみ）',
+    '- 「PoC」は「ピーオーシー」と発音',
+    '- 実在人物の経歴・機材スペックの捏造を禁止（Zero Hallucination）','',
+    '### A-7. 受け入れ基準（完了の定義）',''];
+  CHECKLIST.forEach(c=>L.push('- [ ] '+c));
+  return L;
+}
+function bodyDesign(){const r=S.rules;
+  const L=['## B. 詳細設計書','','### B-1. 全体構成（キューシート）','',
+    '| # | 時間 | 幕・タイトル | 配色 | ポーズ | 構図 | 問い |','| :-- | :-- | :-- | :-- | :-- | :-- | :-- |'];
+  S.scenes.forEach((s,i)=>L.push('| '+num(i+1)+' | '+(s.time||'—')+' | '+oneLine(s.act+'｜'+s.title)+' | '+s.color+' | '+s.pose+' | '+s.comp+' | '+s.level+' |'));
+  L.push('','### B-2. 演出・固定ルール','',
+    '- キャラクター固定：'+r.character,
+    '- 衣装・小道具：'+r.costume,
+    '- PiP：'+r.pip,
+    '- 配色設計：'+r.color,
+    '- 音声・口調：'+r.voice,
+    '- 発音指定：'+r.pron,'',
+    '### B-3. 問いの階層 × 構図','',
+    '| 階層 | 目的 | 対応構図 | Wait Time |','| :-- | :-- | :-- | :-- |',
+    '| L1 | 確認 | 三分割法・日の丸・対称・三角 | 7〜15秒 |',
+    '| L2 | 掘り下げ | 三分割法・対称 | 7〜15秒 |',
+    '| L3 | 仮説 | 対角線・リーディングライン | 30秒 |',
+    '| L4 | 統合 | 黄金螺旋・黄金比グリッド・額縁 | 30秒 |');
+  return L;
+}
+function bodyImpl(){const r=S.rules;return[
+  '## C. 実装仕様書','',
+  '### C-1. 制作パイプライン',
+  '1. 台本生成（本ツールのMDをAI／NotebookLMへ）',
+  '2. スライド・構図作成（問いの階層に対応）',
+  '3. ナレーション収録（音声仕様に従う）',
+  '4. 編集・PiP合成・配色演出・書き出し','',
+  '### C-2. プロンプト仕様',
+  '- 役割：しろうさぎアナウンサー（です・ます調）',
+  '- 制約：答えを与えず問いかけで自己説明を引き出す',
+  '- タグ：[思考プロンプト]／[沈黙: 15秒]（L3/L4は30秒）を強制',
+  '- NG：誘導尋問・過剰な助言・期待正解以外の即否定','',
+  '### C-3. アセット・配色仕様',
+  '- キャラ：'+r.character,
+  '- 衣装・小道具：'+r.costume,
+  '- 配色：青（安心／挨拶／How）／核心は Alert Red #FF0000 ＋スナップズーム',
+  '- PiP：'+r.pip,'',
+  '### C-4. 音声仕様',
+  '- '+r.voice,
+  '- 発音：'+r.pron,'',
+  '### C-5. 品質ゲート',
+  '- 「A-7 受け入れ基準（品質チェックリスト）」を全項目通過',
+  '- 出典は NotebookLM で「どのソースのどこ?」と確認',
+  '- ZPD検証・UDLチェックを実施'
+];}
+function bodyWBS(){const L=['## D. WBS（作業分解構成）','',
+  '| ID | フェーズ | タスク | 成果物 |','| :-- | :-- | :-- | :-- |'];
+  wbsData().forEach(ph=>ph.tasks.forEach((t,i)=>L.push('| '+ph.id+'.'+(i+1)+' | '+(i===0?ph.phase:'〃')+' | '+t.n+' | '+t.d+' |')));
+  L.push('','> 担当・工数・期間は体制に合わせて記入してください。');
+  return L;
+}
+function bodyNotebookLM(){return[
+  '## E. NotebookLM 運用設計（特化）','',
+  'NotebookLM をプロジェクトの「資料ハブ＋素材生成エンジン」として運用する。アップロードしたソースのみを根拠に回答し出典を示すため、嘘つかない原則と整合する。','',
+  '### E-1. ソース構成',
+  '- A 要件定義書／B 詳細設計書／C 実装仕様書（本ツールから書き出し）',
+  '- 査読論文PDF（Guo 2014・Brame 2016・Mayer 等／1ソース最大50万語・100ページ未満に分割）',
+  '- 既存の台本・企画書','',
+  '### E-2. Custom Instructions（最大1万字・貼り付け用）','',
+  '```',buildNbCustomInstructions(),'```','',
+  '### E-3. Studio 活用',
+  '- Audio Overview：台本ドラフト／対談形式の素材',
+  '- Video Overview（シネマティック含む）：解説動画ドラフト',
+  '- Mind Map：構成の整理・抜け漏れ確認',
+  '- Report：企画書・設計書の要約',
+  '- Infographic（Scientific / Kawaii 等10スタイル）：図解',
+  '- Flashcards / Quiz：受講者の検索練習用','',
+  '### E-4. 検証フロー',
+  '- 回答に対し「その記述はどのソースのどのセクション？」で出典確認',
+  '- 複数ソース時はソース名を明示／Discover Sources・Deep Research で関連論文を引用付き収集','',
+  '公式ヘルプ：https://support.google.com/notebooklm/ ／ 製品：https://notebooklm.google.com'
+];}
+
+function directionBody(sec){
+  if(sec==='requirements')return bodyRequirements();
+  if(sec==='design')return bodyDesign();
+  if(sec==='impl')return bodyImpl();
+  if(sec==='wbs')return bodyWBS();
+  return bodyNotebookLM();
+}
+function directionDoc(){const d=direction,m=S.meta;
+  return ['# ディレクション設計書：『'+m.programTitle+'』','',
+    '> しろうさぎアナウンサー制作 ／ うさうさNEWS ブリッジ '+VERSION+'（'+RELEASE+'）','',
+    '- PM／ディレクター：'+(d.director||'（記入）'),
+    '- 制作期間：'+(d.period||'（記入）'),
+    '- 体制：'+(d.team||'（記入）'),'','---','',
+    ...bodyRequirements(),'',...bodyDesign(),'',...bodyImpl(),'',...bodyWBS(),'',...bodyNotebookLM()
+  ].concat(docFooter()).join('\n');
+}
+
+/* 軽量 Markdown → HTML（画面表示用） */
+function mdToHtml(md){
+  const e=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const inl=s=>e(s).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/`([^`]+)`/g,'<code>$1</code>');
+  const lines=md.split('\n');let html='',i=0,inCode=false,buf=[],list=null;
+  const flush=()=>{if(list){html+='<ul>'+list.join('')+'</ul>';list=null;}};
+  while(i<lines.length){const ln=lines[i];
+    if(ln.trim()==='```'){if(!inCode){inCode=true;buf=[];}else{inCode=false;html+='<pre class="code">'+e(buf.join('\n'))+'</pre>';}i++;continue;}
+    if(inCode){buf.push(ln);i++;continue;}
+    if(/^\s*\|/.test(ln)&&i+1<lines.length&&/^\s*\|[\s:\-|]+\|\s*$/.test(lines[i+1])){
+      flush();const hd=ln.split('|').slice(1,-1).map(c=>c.trim());i+=2;const rows=[];
+      while(i<lines.length&&/^\s*\|/.test(lines[i])){rows.push(lines[i].split('|').slice(1,-1).map(c=>c.trim()));i++;}
+      html+='<table class="kv"><tr>'+hd.map(h=>'<th>'+inl(h)+'</th>').join('')+'</tr>'+rows.map(r=>'<tr>'+r.map(c=>'<td>'+inl(c)+'</td>').join('')+'</tr>').join('')+'</table>';continue;}
+    if(/^#{1,6}\s/.test(ln)){flush();const lvl=ln.match(/^#+/)[0].length;const tag=lvl<=1?'h2':(lvl===2?'h3':'h4');html+='<'+tag+'>'+inl(ln.replace(/^#+\s/,''))+'</'+tag+'>';i++;continue;}
+    if(/^\s*>\s?/.test(ln)){flush();html+='<blockquote>'+inl(ln.replace(/^\s*>\s?/,''))+'</blockquote>';i++;continue;}
+    let m=ln.match(/^(\s*)-\s\[ \]\s(.*)$/);
+    if(m){if(!list)list=[];list.push('<li><span class="cbx">□</span>'+inl(m[2])+'</li>');i++;continue;}
+    m=ln.match(/^(\s*)-\s(.*)$/);
+    if(m){if(!list)list=[];const pad=m[1].length>=2?' style="margin-left:14px"':'';list.push('<li'+pad+'>'+inl(m[2])+'</li>');i++;continue;}
+    if(ln.trim()===''){flush();i++;continue;}
+    flush();html+='<p>'+inl(ln)+'</p>';i++;
+  }
+  flush();return html;
+}
+
+function setDSec(i){dSec=i;renderDirection();}
+function renderDirection(){
+  const nav=document.getElementById('dsubnav');
+  if(nav)nav.innerHTML=DSECS.map((s,i)=>'<button class="subpill '+(i===dSec?'on':'')+'" onclick="setDSec('+i+')"><span class="pn">'+String.fromCharCode(65+i)+'</span>'+esc(s[1])+'</button>').join('');
+  const body=document.getElementById('dbody');
+  if(body)body.innerHTML='<div class="mdbody">'+mdToHtml(directionBody(DSECS[dSec][0]).join('\n'))+'</div>';
+}
+
+/* ============ PROPOSAL (企画書ウィザード) ============ */
+const PSTEP_TITLES=['概要','ねらい','根拠','構成','演出','配布','完成'];
+const PCOUNT=7;
+let pStep=0;
+let proposal=blankProposal();
+
+function blankProposal(){return{
+  title:'うさうさNEWS 新企画',feature:'（特集テーマを入力）',audience:'IT未経験・新人',
+  problem:'（解決したい課題・なぜこの動画を作るのか）',format:'ニュース番組形式の解説動画',length:'約6分',
+  goal:'（この動画で身につくこと）',behavior:'（視聴後に明日からやってほしいこと）',bloom:'理解・応用',
+  evidence:'ソクラテス式問答法（答えを言わず問いで引き出す）\nテスト効果・生成効果（思い出す／自ら言語化することで定着）',
+  chapters:[{phase:'第1章：（フェーズ・テーマ名）',key:'（この章のキーメッセージ）',qlines:'（問いかけ）｜（Why：なぜこの問いが効くか）'}],
+  character:'しろうさぎアナウンサー（落ち着いた女性の声・です/ます調）／紺スーツ・赤蝶ネクタイ・白シャツ',
+  color:'青基調（核心で赤＋スナップズーム）',closing:'面白きこともなき世を面白く。またお会いしましょう。',
+  outputs:'解説動画／Qiita記事／配布PDF',channel:'社内研修・YouTube限定公開',kpi:'視聴維持率／実践報告数'};}
+
+function sampleProposal(){return{
+  title:'Education Insight 〜IT研修の現場から〜',
+  feature:'開発プロセス別！ソクラテス式問答法 実践マニュアル',
+  audience:'IT研修講師・現場エンジニア（新人〜中堅）',
+  problem:'各開発フェーズ（要件定義〜テスト）でソクラテス式問答法をどう使い分ければよいか分からない、という現場の声に応える。',
+  format:'ニュース番組形式の解説動画',length:'約8分',
+  goal:'要件定義・詳細設計・実装・テストの4フェーズで、そのまま使える問いかけフレーズを習得し、状況に応じて使い分けられる。',
+  behavior:'担当プロジェクトのフェーズに合わせて、明日から1つの「問い」を現場に持ち込む。',
+  bloom:'応用・分析',
+  evidence:'Paul & Elder：6種のソクラテス的問い（概念の明確化／前提／根拠・証拠／視点／含意・結果／問いそのもの）\nティーチング（Telling）→テスティング（Testing）への転換\n生成効果・検索練習効果（自ら言語化することで定着）\n転移学習（過去の反省でなく未来の場面への行動化）',
+  chapters:[
+    {phase:'フェーズ1：要件定義 〜「わかったつもり」と「思い込み」を防ぐ〜',key:'概念の明確化と前提の問い直しで、勝手な思い込みによる後工程の手戻りを防ぐ。',
+     qlines:'（業務用語）とは具体的にどういう意味ですか？自分の言葉で説明してみてください｜知らない用語を「わかった気」で進めるのを防ぎ、概念の内面化を確認する\nその機能が『絶対に必要だ』とする前提は何ですか？もし無かったらどう変わりますか？｜要求を鵜呑みにせず、本当に解決すべき課題（前提）を問い直させる\nクライアント（ユーザー）側から見ると、この仕様はどう見えますか？｜開発者視点から離れ、別の視点を強制的に持たせる'},
+    {phase:'フェーズ2：詳細設計 〜未来のリスクを机上でシミュレーションする〜',key:'コードを書く前に「結果・影響」を想像させる。',
+     qlines:'データが100万件になったら、この処理は何分かかりますか？｜パフォーマンス・計算量の意味を、コーディング前の机上シミュレーションで体感させる\nユーザーが無効な値を入れたら、この設計だとどう動きますか？｜正常系だけでなくエラーハンドリングの必要性（含意・結果）を自発的に発見させる\n他のアーキテクチャを採用した場合、どうなりますか？｜最初の一案への固執（アンカリング）を防ぎ、多角的な視点を促す'},
+    {phase:'フェーズ3：実装（コードレビュー）〜未来の自分と他者への想像力〜',key:'「直して」ではなく、問いで気づかせる。',
+     qlines:'この変数、3日後に見た自分は何だと思う？｜未来の自分という他者の視点で、命名・可読性の重要性を自発的に理解させる\nこの関数、何をしているか一文で言えますか？｜単一責任原則を、概念説明なしに体感させる\nこのコード、壊れたらどうやって気づく？｜テストの目的を自ら言語化させてから手を動かさせる'},
+    {phase:'フェーズ4：テスト・障害対応 〜犯人探しから科学的探究へ〜',key:'憶測を排除し、事実に基づく科学的思考を引き出す。',
+     qlines:'それは事実ですか、推測ですか？ログのどこに根拠がありますか？｜断定や憶測を、事実（証拠）に引き戻す\nエラーメッセージは何と書いてありましたか？｜症状（結果）でなく証拠（ログ）を見る習慣をつける\n最後に動いていたのは、どこまでですか？｜闇雲な調査でなく、二分探索的なデバッグへ論理的に誘導する\nあなたが次同じ場面に立ったら、まず何をしますか？｜過去への反省でなく、未来への転移学習（行動化）を促す'}
+  ],
+  character:'しろうさぎアナウンサー（おだやかな笑顔・ゆっくり語りかける／落ち着いた女性の声・です・ます調）／紺スーツ・赤蝶ネクタイ・白シャツ',
+  color:'青基調（フェーズ転換で緩急をつける）',
+  closing:'ぜひ担当プロジェクトのフェーズに合わせて、明日から一つの「問い」を現場に持ち込んでみてくださいね。ご視聴ありがとうございました。',
+  outputs:'解説動画／Qiita記事／配布用PDF（問いかけチートシート）',
+  channel:'社内研修・YouTube限定公開',
+  kpi:'視聴維持率／「明日試す問い」の回答数／現場での問いかけ実践報告数'};}
+
+function loadProposal(which){proposal=which==='sample'?sampleProposal():blankProposal();fillProposalForm();renderChapters();pStep=0;renderProposal();toast(which==='sample'?'サンプル企画書を読み込みました':'空の企画書を用意しました');}
+function fillProposalForm(){const p=proposal;
+  setV('pr_title',p.title);setV('pr_feature',p.feature);setV('pr_audience',p.audience);setV('pr_problem',p.problem);
+  setV('pr_format',p.format);setV('pr_length',p.length);setV('pr_goal',p.goal);setV('pr_behavior',p.behavior);
+  setV('pr_bloom',p.bloom);setV('pr_evidence',p.evidence);setV('pr_character',p.character);setV('pr_color',p.color);
+  setV('pr_closing',p.closing);setV('pr_outputs',p.outputs);setV('pr_channel',p.channel);setV('pr_kpi',p.kpi);}
+function bindProposal(){const p=proposal;
+  p.title=getV('pr_title');p.feature=getV('pr_feature');p.audience=getV('pr_audience');p.problem=getV('pr_problem');
+  p.format=getV('pr_format');p.length=getV('pr_length');p.goal=getV('pr_goal');p.behavior=getV('pr_behavior');
+  p.bloom=getV('pr_bloom');p.evidence=getV('pr_evidence');p.character=getV('pr_character');p.color=getV('pr_color');
+  p.closing=getV('pr_closing');p.outputs=getV('pr_outputs');p.channel=getV('pr_channel');p.kpi=getV('pr_kpi');
+  renderProposalPreview();}
+
+function renderChapters(){
+  document.getElementById('chapterList').innerHTML=proposal.chapters.map((c,i)=>`
+    <div class="chcard">
+      <div class="chh"><span class="chn">${i+1}</span><span class="ttl">${esc(c.phase||'(章名未設定)')}</span>
+        <span class="sc-actions">
+          <button class="icon-btn" title="上へ" onclick="moveChapter(${i},-1)" ${i===0?'disabled':''}>↑</button>
+          <button class="icon-btn" title="下へ" onclick="moveChapter(${i},1)" ${i===proposal.chapters.length-1?'disabled':''}>↓</button>
+          <button class="icon-btn" title="削除" onclick="delChapter(${i})">✕</button>
+        </span></div>
+      <label>章・フェーズ名</label><input type="text" value="${esc(c.phase)}" oninput="setChapter(${i},'phase',this.value)">
+      <label>キーメッセージ</label><input type="text" value="${esc(c.key)}" oninput="setChapter(${i},'key',this.value)">
+      <label>問いかけ（1行1問：問い｜Why）</label><textarea rows="4" oninput="setChapter(${i},'qlines',this.value)">${esc(c.qlines)}</textarea>
+    </div>`).join('');
+}
+function setChapter(i,k,v){proposal.chapters[i][k]=v;renderProposalPreview();if(k==='phase'){const t=document.querySelectorAll('#chapterList .ttl')[i];if(t)t.textContent=v||'(章名未設定)';}}
+function moveChapter(i,d){const j=i+d;if(j<0||j>=proposal.chapters.length)return;const t=proposal.chapters[i];proposal.chapters[i]=proposal.chapters[j];proposal.chapters[j]=t;renderChapters();renderProposalPreview();}
+function delChapter(i){if(proposal.chapters.length<=1){toast('章は最低1つ必要です');return;}proposal.chapters.splice(i,1);renderChapters();renderProposalPreview();}
+function addChapter(){proposal.chapters.push({phase:'第'+(proposal.chapters.length+1)+'章：（テーマ名）',key:'（キーメッセージ）',qlines:'（問いかけ）｜（Why）'});renderChapters();renderProposalPreview();toast('章を追加しました');}
+
+function goStep(i){if(i<0||i>=PCOUNT)return;pStep=i;renderProposal();window.scrollTo({top:0,behavior:'smooth'});}
+function nextStep(){goStep(Math.min(pStep+1,PCOUNT-1));}
+function prevStep(){goStep(Math.max(pStep-1,0));}
+function renderProposal(){
+  const st=document.getElementById('pstepper');
+  if(st)st.innerHTML=PSTEP_TITLES.map((t,i)=>`<div class="dot ${i===pStep?'on':(i<pStep?'done':'')}" onclick="goStep(${i})"><span class="n">${i+1}</span>${esc(t)}</div>`).join('');
+  document.querySelectorAll('#view-proposal .pstep').forEach(el=>el.classList.toggle('on',+el.dataset.p===pStep));
+  const prev=document.getElementById('pPrev'),next=document.getElementById('pNext');
+  if(prev)prev.style.visibility=pStep===0?'hidden':'visible';
+  if(next){if(pStep>=PCOUNT-1){next.style.visibility='hidden';}else{next.style.visibility='visible';next.textContent=(pStep===PCOUNT-2)?'企画書を完成 ▶':'次へ ▶';}}
+  renderProposalPreview();
+}
+function renderProposalPreview(){const c=document.getElementById('proposalCode');if(c)c.textContent=sectionText('proposal');const f=document.getElementById('proposalFn');if(f)f.textContent=sectionFilename('proposal');}
+
+function proposalToScript(){
+  const p=proposal;
+  S.meta.programTitle=p.title||S.meta.programTitle;
+  S.meta.announcer='しろうさぎアナウンサー';
+  S.meta.skillName=p.goal||p.feature||S.meta.skillName;
+  S.meta.subtitle=p.feature||S.meta.subtitle;
+  if(p.closing)S.meta.closingLine=p.closing;
+  if(p.length)S.meta.totalLength=p.length;
+  if(/初級|未経験|新人/.test(p.audience))S.meta.audienceLevel='IT未経験・新人（初級）';
+  const comps=['対称','三角','対角線','リーディングライン','黄金比グリッド','日の丸'];
+  const scenes=[{act:'オープニング',time:'00:00-00:30',title:'挨拶・テーマ提示',visual:'青基調スタジオ。「'+(p.feature||'')+'」を提示。',comp:'三分割法',pose:'正面',color:'青',level:'L1',narr:'皆様、こんにちは。しろうさぎアナウンサーです。本日のテーマは「'+(p.feature||'')+'」。'+(p.goal||'')}];
+  p.chapters.forEach((c,i)=>{
+    const qs=(c.qlines||'').split('\n').map(x=>x.split('｜')[0].trim()).filter(Boolean);
+    const qtxt=qs.map(q=>'「'+q+'」').join(' ');
+    scenes.push({act:'第'+(i+1)+'章',time:'',title:(c.phase||'').slice(0,46),visual:(c.key||''),comp:comps[i%comps.length],pose:'指示棒',color:(i%2===0?'青':'赤'),level:(i<2?'L2':'L3'),narr:(c.key?c.key+'　':'')+'[思考プロンプト] '+qtxt+' [沈黙: 15秒]'});
+  });
+  scenes.push({act:'エンディング',time:'',title:'まとめ・決めゼリフ',visual:'青基調に固定。次回予告・NEWSロゴ表示。',comp:'額縁',pose:'手を挙げる',color:'青',level:'L4',narr:(p.behavior?p.behavior+'　':'')+(p.closing||'面白きこともなき世を面白く。またお会いしましょう。')});
+  S.scenes=scenes;
+  fillForm();renderSceneEditor();renderCue();renderOut();
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.v==='script'));
+  document.querySelectorAll('.view').forEach(x=>x.classList.remove('on'));
+  document.getElementById('view-script').classList.add('on');
+  toast('企画書から台本を生成しました（台本タブ）');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function bodyProposal(){
+  const p=proposal;
+  const L=['## 1. 企画概要','',
+    '- 番組タイトル：'+p.title,'- 特集テーマ：'+p.feature,'- 対象視聴者：'+p.audience,
+    '- 解決する課題（なぜ作るか）：'+p.problem,'- 形式：'+p.format,'- 尺（目安）：'+p.length,'',
+    '## 2. ねらい・学習目標','',
+    '- 学習目標：'+p.goal,'- 行動変容ゴール：'+p.behavior,'- 認知レベル（Bloom）：'+p.bloom,'',
+    '## 3. 根拠（エビデンス）',''];
+  (p.evidence||'').split('\n').filter(x=>x.trim()).forEach(e=>L.push('- '+e.trim()));
+  L.push('','## 4. 構成案','');
+  p.chapters.forEach((c,i)=>{
+    L.push('### 第'+(i+1)+'章　'+(c.phase||''));
+    if(c.key)L.push('- キーメッセージ：'+c.key);
+    const qs=(c.qlines||'').split('\n').filter(x=>x.trim());
+    if(qs.length){L.push('- 問いかけ：');qs.forEach(q=>{const a=q.split('｜');const qq=(a[0]||'').trim();const wy=(a[1]||'').trim();L.push('  - 「'+qq+'」'+(wy?' ▶ Why: '+wy:''));});}
+    L.push('');
+  });
+  L.push('## 5. 演出・トンマナ','',
+    '- キャラクター：'+p.character,'- 配色：'+p.color,'- 決めゼリフ：「'+p.closing+'」','',
+    '## 6. 配布・成功指標','',
+    '- アウトプット形式：'+p.outputs,'- 公開先：'+p.channel,'- 成功指標（KPI）：'+p.kpi,'',
+    '> この企画書は「企画」「台本」タブへ展開して、そのまま制作指示書・台本に落とし込めます。');
+  return L;
+}
+function proposalDoc(){
+  return ['# 企画書：『'+proposal.title+'』','',
+    '> しろうさぎアナウンサー企画 ／ うさうさNEWS ブリッジ '+VERSION+'（'+RELEASE+'）','','---','',
+    ...bodyProposal()].concat(docFooter()).join('\n');
+}
+
+/* ============ CONSULT / PAPERS / TROUBLE ============ */
+let consultMode='gentle';
+let consult={category:'台本構成・流れ',target:'NotebookLM（自分の資料に基づく）',situation:''};
+
+function setConsultMode(m){consultMode=m;renderConsult();}
+function bindConsult(){consult.category=getV('c_category');consult.target=getV('c_target');consult.situation=getV('c_situation');renderConsult();}
+function buildConsultPrompt(){
+  const cat=consult.category;
+  const sit=(consult.situation||'').trim()||'（ここに相談内容を記入してください）';
+  const ctx=`【番組】『${S.meta.programTitle}』／対象：${S.meta.audienceLevel}`;
+  if(consultMode==='gentle'){
+    return [
+      '# 役割：やさしい先輩（IT研修メンター）',
+      'あなたは心理的安全性を最優先する、経験豊富で温かい先輩講師です。次の方針で壁打ち相手になってください。',
+      '- 答えを即座に与えない。ソクラテス式の問い（まずL1確認→必要に応じてL2）で本人の自己説明を引き出す',
+      '- まず現状を肯定する（Sandwich法・+1技法）。指摘はSBIモデル（状況→行動→影響）で具体的に',
+      '- 1つずつ、相手のペースで。難しすぎる問いは避け、詰まったらL1へフォールバックして足場をかけ直す',
+      '- Wait Timeを尊重し急かさない。誤答も「一つの視点」として受け止める',
+      '','# 文脈',ctx,'相談カテゴリ：'+cat,
+      '','# 相談内容',sit,
+      '','# お願い',
+      '1) まず共感を一言　2) やさしい順に小さな問いを2〜3個　3) 「次の小さな一歩」を1つだけ提案　の順で、温かいトーンで返してください。答えそのものは渡さず、私が自分で気づけるように導いてください。'
+    ].join('\n');
+  }
+  return [
+    '# 役割：厳しいが真剣な指導者（IT研修シニア）',
+    'あなたは品質基準が高く妥協を許さないが、相手の成長を本気で願うシニア講師です。次の方針で壁打ち相手になってください。',
+    '- 曖昧さを許さない。根拠・具体・数値を要求する（L2掘り下げ／L3仮説の問いを中心に）',
+    '- 思い込みや甘い前提を率直に指摘する。ただし人格ではなく「行動・成果物」に焦点を当てる（SBI-E）',
+    '- 答えは渡さない。本人に考えさせる。安易な一般論という逃げ道を塞ぐ',
+    '- 厳しくとも建設的に。最後に「ここを直せば一段上がる」という具体を必ず1つ',
+    '','# 文脈',ctx,'相談カテゴリ：'+cat,
+    '','# 相談内容',sit,
+    '','# お願い',
+    '忖度なしで、(1) 弱点・甘い前提を3点、(2) 鋭い問いを2つ、(3) 最優先で直すべき1点、を具体的に指摘してください。褒めは不要。ただし攻撃ではなく、成果物の改善に集中してください。'
+  ].join('\n');
+}
+function consultDoc(){
+  const modeName=consultMode==='gentle'?'やさしい先輩':'厳しいが真剣';
+  return ['# AI壁打ち相談プロンプト（モード：'+modeName+'）','',
+    '> 下記をそのまま NotebookLM / Claude / Gemini に貼り付けてください。',
+    '> NotebookLM で使うと、アップロードした資料・論文に基づき出典付きで壁打ちできます。','','---','',
+    buildConsultPrompt(),'','---','',
+    '参考：NotebookLM 公式ヘルプ https://support.google.com/notebooklm/ ／ うさうさNEWS ブリッジ'].join('\n');
+}
+function renderConsult(){
+  const g=document.getElementById('mode-gentle'),s=document.getElementById('mode-strict');
+  if(g)g.classList.toggle('on',consultMode==='gentle');
+  if(s)s.classList.toggle('on',consultMode==='strict');
+  const qs=consultMode==='gentle'
+    ?['今いちばん「うまくいっている部分」はどこですか？（まず自分を肯定）','その詰まりを、もし新人に説明するとしたら、どんな言葉になりますか？','いま試せそうな「小さな一歩」を1つ挙げるなら？']
+    :['その判断の根拠は？数値や具体例で説明できますか？','「たぶん」「なんとなく」で済ませている前提はどこですか？','これを直さないと一段上がれない、という弱点を1つ挙げると？'];
+  const t=document.getElementById('consultQTitle'); if(t)t.textContent=consultMode==='gentle'?'やさしい先輩なら、まずこう問いかけます：':'厳しいが真剣な先輩なら、まずこう問い詰めます：';
+  const q=document.getElementById('consultQ'); if(q)q.innerHTML='<ul>'+qs.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>';
+  const code=document.getElementById('consultCode'); if(code)code.textContent=sectionText('consult');
+  const fn=document.getElementById('consultFn'); if(fn)fn.textContent=sectionFilename('consult');
+}
+
+function bodyPapers(){return[
+  '## 解析動画・教育動画に効く 査読済み研究','',
+  '> いずれも実在の研究。最終的な数値・主張は原典で確認すること（NotebookLMに入れて「その記述はどのソースのどこ？」で検証）。','',
+  '### Guo, Kim & Rubin (2014) — ACM Learning @ Scale',
+  '- DOI: 10.1145/2556325.2566239（edX 4講座・690万視聴セッション）',
+  '- 示唆：短い動画ほど engagement が高い（目安6分以内）。トーキングヘッド＋スライド併用、Khan式手書き、話速やや速め＋高い熱量が有効。','',
+  '### Brame (2016) — CBE—Life Sciences Education',
+  '- DOI: 10.1187/cbe.16-03-0125',
+  '- 示唆：認知負荷の管理・engagement・能動的学習の3軸で設計。signaling / segmenting / weeding。','',
+  '### Mayer — マルチメディア学習の認知理論',
+  '- 示唆：言葉＋絵（multimedia）、語と図の近接、ナレーションと冗長字幕を重ねない（redundancy）、重要箇所の強調（signaling）。','',
+  '### Sweller ほか — 認知負荷理論',
+  '- 示唆：外在的負荷を削る。1スライド3情報・引き算の原則・余白の確保。','',
+  '### Roediger & Karpicke (2006) — 検索練習効果',
+  '- 示唆：思い出させる設計が定着を高める。[思考プロンプト]・白紙想起を仕込む。','',
+  '### Hattie (2009) — フィードバックの効果量',
+  '- 示唆：フィードバック d=0.73。情報提示で終わらせず問い＋気づきへ。','',
+  '## NotebookLM 学習ワークフロー（公式ドキュメント準拠）','',
+  'NotebookLMは自分がアップロードしたソースだけを根拠に回答し、出典を示す（ハルシネーションを抑制）。',
+  '1. notebooklm.google.com でノートブック作成。',
+  '2. 査読論文PDFや資料をソース追加（PDF / Googleドキュメント / スライド / Web URL / 公開YouTube字幕付き / テキスト / 音声 / EPUB、1ソース最大50万語）。長いPDFは100ページ未満に分割。',
+  '3. 「その記述はどのソースのどのセクション？」で出典を検証。複数ソース時はソース名を明示。',
+  '4. Studioで Audio / Video Overview・Mind Map・Report・Infographic(10スタイル)・Flashcards / Quiz を生成し動画素材化。',
+  '5. Discover Sources（Fast）/ Deep Research で関連論文を引用付きで収集・取り込み。',
+  '6. Custom Instructions（最大1万字）で役割・文脈・出力形式を指定。','',
+  '公式ヘルプ：https://support.google.com/notebooklm/ ／ 製品：https://notebooklm.google.com'
+];}
+
+function bodyTrouble(){
+  const items=[
+    ['比喩(METAPHOR)が思い浮かばない','対象者の既知概念と結びついていない／認知負荷が高い','料理・交通ルールなど日常概念から借りる。技術用語を技術用語で例えない。要点に絞る。','Cognitive Load / METAPHORガードレール'],
+    ['問いが難しすぎる気がする','ZPD逸脱。初心者にL3以上を連発し思考停止・自己効力感の喪失','L3→L1へフォールバックし足場を再構築。L1から段階化。Wait Time(L1/L2は7〜15秒)を確保。','Vygotsky ZPD / Bandura 1997'],
+    ['動画の尺が長くなる','詰め込みすぎで視聴維持が落ちる','6分以内を目安に分割(Guo 2014)。1スライド3情報。冗長情報をweeding。1幕=1メッセージ。','Guo,Kim&Rubin 2014 / Brame 2016'],
+    ['受講生・視聴者が黙ってしまう','沈黙を失敗と捉えすぐ答えを与えている／心理的安全性不足','沈黙はWait Time。待つ。「一緒に考えよう」と伴走。+1・SBIで小さく承認。','Rowe 1974 / SBI・+1'],
+    ['台本生成でAIがすぐ答えを言う','プロンプトに「答えを言わない」制約と「間」が無い','[思考プロンプト]・[沈黙:15秒]を強制。「問いかけで自己説明を引き出す」を明記。誘導尋問・過剰助言を禁止。','生成効果 / 教育的介入の対照表'],
+    ['出典が合っているか不安','記憶ベースの引用は捏造リスク','嘘つかない原則を徹底。NotebookLMに入れ「どのソースのどこ?」で検証。原典DOIを併記。','NotebookLM source-grounding'],
+    ['テンポが単調になる','同じ画作りの連続でワーキングメモリが飽和','トーキングヘッド↔スライドを交互。Khan式を挟む。配色の緩急(青→核心で赤+スナップズーム)。構図を階層に合わせる。','Guo 2014 / 構図×階層'],
+    ['ポーズ・構図の選び方に迷う','問いの階層と画作りが対応していない','L1/L2=三分割・日の丸・対称・三角、L3/L4=対角線・リーディングライン・黄金螺旋・黄金比グリッド・額縁。','4階層×構図マッピング'],
+    ['キャラクターがブレる','AIの独自解釈(擬人化・リアル化・変形)','絶対固定ルールを冒頭に明記。公式ポーズのみ。紺スーツ・赤蝶ネクタイ・白シャツ＋マイク・にんじん固定。','Zero Hallucination / 固定ルール'],
+    ['一人で煮詰まる','視点が固定され抜け道が見えない','壁打ち相談タブへ。やさしい先輩で整理、厳しいが真剣で弱点を直視。プロンプトをAIに貼って深掘り。','壁打ち相談']
+  ];
+  const L=['## 実践こまったら：困りごと → 原因 → 打ち手',''];
+  items.forEach((it,i)=>{L.push(`### Q${i+1}. ${it[0]}`,`- 原因：${it[1]}`,`- 打ち手：${it[2]}`,`- ref: ${it[3]}`,'');});
+  return L;
+}
+
+/* ============ SECTION MD / TXT ============ */
+function docHeader(suffix){return[`# 動画制作完全設計指示書：『${S.meta.programTitle}』${suffix?'｜'+suffix:''}`,'',
+  '> しろうさぎアナウンサーがお届けする、ニュース番組形式の教育動画 制作指示書。',
+  '> 「面白きこともなき世を面白く」— 硬派な技術資料をメルヘンに翻訳し、答えを言わない指導術を再現する。','','---',''];}
+function docFooter(){return['','---',`*Generated by うさうさNEWS ブリッジ ${VERSION}（${RELEASE}） ／ 単一ファイル・オフライン ／ うさうさ研修工房*`];}
+function sectionMd(sec){
+  if(sec==='consult') return consultDoc();
+  if(sec==='proposal') return proposalDoc();
+  if(sec==='direction') return directionDoc();
+  if(sec==='aistudio') return aiStudioDoc();
+  let parts;
+  if(sec==='howto') parts=[...docHeader('使い方'),...bodyHowto()];
+  else if(sec==='brief') parts=[...docHeader('企画'),...bodyBrief()];
+  else if(sec==='script') parts=[...docHeader('台本'),...bodyScript()];
+  else if(sec==='rules') parts=[...docHeader('演出規定'),...bodyRules()];
+  else if(sec==='theory') parts=[...docHeader('勉強会・理論'),...bodyTheory()];
+  else if(sec==='papers') parts=[...docHeader('論文で学ぶ'),...bodyPapers()];
+  else if(sec==='trouble') parts=[...docHeader('実践こまったら'),...bodyTrouble()];
+  else parts=[...docHeader(''),...bodyBrief(),'',...bodyScript(),'',...bodyRules(),'',...bodyTheory(),'',...bodyChecklist()];
+  return parts.concat(docFooter()).join('\n');
+}
+function stripMd(md){return md
+  .replace(/^#{1,6}\s+/gm,'').replace(/\*\*(.+?)\*\*/g,'$1').replace(/^\>\s?/gm,'')
+  .replace(/`/g,'').replace(/^\- \[ \] /gm,'□ ').replace(/^\- /gm,'・').replace(/\*(.+?)\*/g,'$1');}
+function sectionTxt(sec){return stripMd(sectionMd(sec));}
+function sectionText(sec){return getSeg(sec)==='md'?sectionMd(sec):sectionTxt(sec);}
+function oneLine(t){return(t||'').replace(/\n/g,' ').replace(/\|/g,'/');}
+
+/* ============ PER-TAB FORMAT ============ */
+function getSeg(sec){const seg=document.querySelector('.seg[data-sec="'+sec+'"]');if(!seg)return'md';const on=seg.querySelector('button.on');return on?on.dataset.f:'md';}
+function setSeg(sec,f){const seg=document.querySelector('.seg[data-sec="'+sec+'"]');if(!seg)return;seg.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.f===f));if(sec==='full')renderOut();}
+
+/* ============ EXPORT TAB PREVIEW ============ */
+function renderOut(){
+  document.getElementById('outCode').textContent=sectionText('full');
+  document.getElementById('outFn').textContent=sectionFilename('full');
+}
+const SECMAP={howto:'使い方',proposal:'企画書',brief:'企画',script:'台本',rules:'演出規定',direction:'ディレクション設計書',theory:'理論',papers:'論文で学ぶ',trouble:'実践こまったら',consult:'壁打ち相談',aistudio:'AIパラメータ設定',full:'制作指示書'};
+function sectionFilename(sec){
+  const base=(S.meta.programTitle||'script').replace(/[「」『』\s\/\\:*?"<>|]/g,'_').slice(0,32);
+  return base+'_'+SECMAP[sec]+(getSeg(sec)==='md'?'.md':'.txt');
+}
+
+/* ============ COPY / DOWNLOAD ============ */
+function copySection(sec){copyText(sectionText(sec),getSeg(sec));}
+function downloadSection(sec){downloadText(sectionText(sec),sectionFilename(sec),getSeg(sec));}
+function copyText(txt,fmt){
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(()=>toast('コピーしました（'+fmt.toUpperCase()+'）'),()=>fbCopy(txt,fmt));}
+  else fbCopy(txt,fmt);
+}
+function fbCopy(txt,fmt){const ta=document.createElement('textarea');ta.value=txt;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.focus();ta.select();
+  try{document.execCommand('copy');toast('コピーしました（'+fmt.toUpperCase()+'）');}catch(e){toast('コピーに失敗しました');}document.body.removeChild(ta);}
+function downloadText(txt,fn,fmt){
+  const blob=new Blob([txt],{type:(fmt==='md'?'text/markdown':'text/plain')+';charset=utf-8'});
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=fn;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),1500);
+  toast('ダウンロードしました（'+fn+'）');}
+
+/* ============ PRESET LOADERS ============ */
+function loadPreset(which){S=which==='master'?masterPreset():blankPreset();fillForm();renderSceneEditor();renderCue();renderOut();toast(which==='master'?'完全再現を読み込みました':'空のひな形を読み込みました');}
+function resetAll(){if(!confirm('現在の編集内容を破棄して完全再現に戻します。よろしいですか？'))return;loadPreset('master');}
+
+/* ============ UTIL ============ */
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+let toastTimer=null;
+function toast(msg){const t=document.getElementById('toast');t.innerHTML=msg;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2200);}
+function tick(){const d=new Date();const p=n=>('0'+n).slice(-2);const el=document.getElementById('wallclock');if(el)el.textContent=p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());}
+
+/* ============ INIT ============ */
+function init(){
+  fillForm();renderSceneEditor();renderCue();renderOut();renderConsult();fillProposalForm();renderChapters();renderProposal();renderDirection();loadAiParams();renderAiStudio();
+  var vs=document.getElementById('verStamp');if(vs)vs.innerHTML='うさうさNEWS ブリッジ <b style="color:var(--emerald-deep)">'+VERSION+'</b> ・ '+RELEASE+' ・ 単一ファイル / オフライン動作 / CDN不使用 ・ うさうさ研修工房';
+  var hs=document.getElementById('hudSub');if(hs)hs.textContent='SCRIPT GENERATOR ・ '+VERSION+' ・ '+RELEASE;
+  tick();setInterval(tick,1000);
+  document.getElementById('mascotBtn').addEventListener('click',()=>{const b=document.getElementById('bubble');if(b.classList.contains('show'))hideQuote();else showQuote();});
+  setTimeout(showQuote,2500);
+  autoTimer=setInterval(()=>{if(!document.getElementById('bubble').classList.contains('show'))showQuote();},52000);
+}
+init();
+</script>
+</body>
+</html>
